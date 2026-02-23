@@ -93,14 +93,42 @@ app.post("/position", (req, res) => {
   res.json({ success: true })
 })
 
+// Track voice-connected users
+const connectedUsers = new Set()
+
+function broadcastConnectedCount() {
+  io.emit("connectedCount", connectedUsers.size)
+}
+
 // 🔊 Speaking update via socket.io (real-time from browser)
 io.on("connection", (socket) => {
   const userId = socket.handshake.auth?.userId
+  if (userId) {
+    connectedUsers.add(userId)
+    broadcastConnectedCount()
+  } else {
+    // Send current count to newly connected page-load sockets (no userId = counter-only)
+    socket.emit("connectedCount", connectedUsers.size)
+  }
+
   socket.on("speaking", ({ speaking }) => {
     if (userId) {
       speakingStates[userId] = speaking
     }
   })
+
+  socket.on("disconnect", () => {
+    if (userId) {
+      connectedUsers.delete(userId)
+      delete speakingStates[userId]
+      broadcastConnectedCount()
+    }
+  })
+})
+
+// 📊 Connected users count
+app.get("/connected", (req, res) => {
+  res.json({ count: connectedUsers.size })
 })
 
 // 🔊 Speaking update via HTTP POST (fallback / direct push from browser on state change)

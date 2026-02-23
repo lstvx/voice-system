@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roblox Voice System</title>
+<title>Avenir Lointain</title>
 <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <style>
@@ -160,7 +160,7 @@
     border-radius: 22px;
     padding: 2rem 1.75rem 1.75rem;
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
     box-shadow:
       0 0 0 1px rgba(255,255,255,.04) inset,
       0 24px 64px rgba(0,0,0,.55),
@@ -581,6 +581,40 @@
   .site-footer a:hover { color: var(--accent2); }
 
   .footer-dot { opacity: .3; }
+
+  /* ── Connected users counter ────────────────────────────────────────────── */
+  .connected-counter {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .82rem;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 99px;
+    padding: .3rem .85rem;
+    white-space: nowrap;
+    transition: color var(--transition);
+  }
+
+  .connected-counter .pulse {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 7px rgba(34,197,94,.7);
+    flex-shrink: 0;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 7px rgba(34,197,94,.7); }
+    50%       { box-shadow: 0 0 14px rgba(34,197,94,1); }
+  }
+
+  .connected-counter strong {
+    color: var(--text);
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -598,11 +632,15 @@
   <div class="brand">
     <div class="brand-logo">🎙️</div>
     <div class="brand-info">
-      <h1>Roblox Voice</h1>
-      <p>Proximity voice chat</p>
+      <h1>Avenir Lointain</h1>
+      <p>Chat vocal de proximité</p>
     </div>
   </div>
-  <button class="header-settings-btn" onclick="openSettings()" title="Audio Settings" id="settingsBtn" aria-label="Open audio settings">
+  <div class="connected-counter" id="connectedCounter" title="Utilisateurs connectés en vocal">
+    <span class="pulse"></span>
+    <span><strong id="connectedCount">0</strong> en vocal</span>
+  </div>
+  <button class="header-settings-btn" onclick="openSettings()" title="Paramètres audio" id="settingsBtn" aria-label="Ouvrir les paramètres audio">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -615,13 +653,13 @@
   <div class="card">
     <div class="status-row">
       <span class="dot" id="statusDot"></span>
-      <span id="statusText">Not connected</span>
+      <span id="statusText">Non connecté</span>
     </div>
 
-    <label for="userIdInput">Roblox User ID</label>
-    <input type="text" id="userIdInput" placeholder="Enter your Roblox User ID">
+    <label for="userIdInput">ID Utilisateur Roblox</label>
+    <input type="text" id="userIdInput" placeholder="Entrez votre ID Utilisateur Roblox">
 
-    <button id="joinBtn" onclick="toggleVoice()">Join Voice</button>
+    <button id="joinBtn" onclick="toggleVoice()">Rejoindre la voix</button>
 
     <div class="mic-section" id="micSection">
       <span class="mic-label">Microphone</span>
@@ -630,15 +668,15 @@
         <div class="volume-bar-bg">
           <div class="volume-bar" id="volumeBar"></div>
         </div>
-        <span class="speaking-badge" id="speakingBadge">Muted</span>
+        <span class="speaking-badge" id="speakingBadge">Muet</span>
       </div>
 
       <div class="controls-row">
         <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">
-          <span id="muteIcon">🎙️</span><span id="muteLbl">Mute</span>
+          <span id="muteIcon">🎙️</span><span id="muteLbl">Couper le micro</span>
         </button>
         <button class="ctrl-btn" id="deafenBtn" onclick="toggleDeafen()">
-          <span id="deafenIcon">🔊</span><span id="deafenLbl">Deafen</span>
+          <span id="deafenIcon">🔊</span><span id="deafenLbl">Sourdine</span>
         </button>
       </div>
 
@@ -655,9 +693,9 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="site-footer">
-  <span>Roblox Voice System</span>
+  <span>Avenir Lointain</span>
   <span class="footer-dot">•</span>
-  <span>Powered by LiveKit</span>
+  <span>Propulsé par LiveKit</span>
   <span class="footer-dot">•</span>
   <a href="https://livekit.io" target="_blank" rel="noopener">livekit.io</a>
 </footer>
@@ -666,15 +704,15 @@
 <div class="settings-overlay" id="settingsOverlay" onclick="handleOverlayClick(event)">
   <div class="settings-modal">
     <div class="settings-header">
-      <span>⚙️ Audio Settings</span>
+      <span>⚙️ Paramètres audio</span>
       <button class="settings-close" onclick="closeSettings()">✕</button>
     </div>
     <div class="settings-body">
-      <label for="deviceSelect">Input Device</label>
+      <label for="deviceSelect">Périphérique d'entrée</label>
       <select id="deviceSelect" onchange="switchDevice(this.value)">
-        <option value="">Default microphone</option>
+        <option value="">Microphone par défaut</option>
       </select>
-      <p class="settings-hint" id="deviceHint">Connect to voice first to enable live device switching.</p>
+      <p class="settings-hint" id="deviceHint">Connectez-vous d'abord à la voix pour activer le changement de périphérique en direct.</p>
     </div>
   </div>
 </div>
@@ -701,6 +739,14 @@ let micGain = 1.0
 let selectedDevice = null
 
 console.log('[VoiceSystem] index.html loaded')
+
+// Global socket for live connected count (no auth needed for count updates)
+;(function initCounterSocket() {
+  const countSocket = io()
+  countSocket.on('connectedCount', (count) => {
+    document.getElementById('connectedCount').textContent = count
+  })
+})()
 
 function setStatus(state, text) {
   const dot = document.getElementById('statusDot')
@@ -744,7 +790,7 @@ async function loadDevices() {
     const devices = await navigator.mediaDevices.enumerateDevices()
     const inputs = devices.filter(d => d.kind === 'audioinput')
     const sel = document.getElementById('deviceSelect')
-    sel.innerHTML = '<option value="">Default microphone</option>'
+    sel.innerHTML = '<option value="">Microphone par défaut</option>'
     inputs.forEach((d, i) => {
       const opt = document.createElement('option')
       opt.value = d.deviceId
@@ -762,10 +808,10 @@ async function switchDevice(deviceId) {
   selectedDevice = deviceId || null
   const hint = document.getElementById('deviceHint')
   if (!connected || !audioCtx || !gainNode) {
-    hint.textContent = 'Will use selected device on next connect.'
+    hint.textContent = 'Sera utilisé lors de la prochaine connexion.'
     return
   }
-  hint.textContent = 'Switching device…'
+  hint.textContent = 'Changement de périphérique…'
   try {
     const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
     const newStream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -780,12 +826,12 @@ async function switchDevice(deviceId) {
     sourceNode = audioCtx.createMediaStreamSource(newStream)
     sourceNode.connect(gainNode)
 
-    hint.textContent = 'Device switched successfully.'
+    hint.textContent = 'Périphérique changé avec succès.'
     console.log('[VoiceSystem] Device switched to:', selectedDevice || 'default')
   } catch (e) {
     console.error('[VoiceSystem] Device switch failed:', e)
-    showError('Device switch failed: ' + (e.message || e))
-    hint.textContent = 'Device switch failed.'
+    showError('Échec du changement de périphérique : ' + (e.message || e))
+    hint.textContent = 'Échec du changement de périphérique.'
   }
 }
 
@@ -799,16 +845,16 @@ function toggleMute() {
   const btn = document.getElementById('muteBtn')
   btn.classList.toggle('active', isMuted)
   document.getElementById('muteIcon').textContent = isMuted ? '🚫' : '🎙️'
-  document.getElementById('muteLbl').textContent = isMuted ? 'Unmute' : 'Mute'
+  document.getElementById('muteLbl').textContent = isMuted ? 'Activer le micro' : 'Couper le micro'
 
   if (isMuted) {
-    document.getElementById('speakingBadge').textContent = 'Muted'
+    document.getElementById('speakingBadge').textContent = 'Muet'
     document.getElementById('speakingBadge').classList.remove('active')
     document.getElementById('micIcon').classList.remove('speaking')
     document.getElementById('volumeBar').style.width = '0%'
     document.getElementById('speakingPopup').classList.remove('visible')
   } else {
-    document.getElementById('speakingBadge').textContent = 'Silent'
+    document.getElementById('speakingBadge').textContent = 'Silencieux'
     document.getElementById('speakingBadge').classList.remove('active')
     document.getElementById('micIcon').classList.remove('speaking')
   }
@@ -822,7 +868,7 @@ function toggleDeafen() {
   const btn = document.getElementById('deafenBtn')
   btn.classList.toggle('active', isDeafened)
   document.getElementById('deafenIcon').textContent = isDeafened ? '🔇' : '🔊'
-  document.getElementById('deafenLbl').textContent = isDeafened ? 'Undeafen' : 'Deafen'
+  document.getElementById('deafenLbl').textContent = isDeafened ? 'Désactiver sourdine' : 'Sourdine'
   console.log('[VoiceSystem] Deafen toggled:', isDeafened)
 }
 
@@ -854,7 +900,7 @@ async function join() {
   clearError()
   const userId = document.getElementById('userIdInput').value.trim()
   if (!userId) {
-    showError('Please enter your Roblox User ID.')
+    showError('Veuillez entrer votre ID Utilisateur Roblox.')
     return
   }
   console.log('[VoiceSystem] join() called | userId:', userId)
@@ -862,7 +908,7 @@ async function join() {
   const btn = document.getElementById('joinBtn')
   btn.disabled = true
   document.getElementById('userIdInput').disabled = true
-  setStatus('connecting', 'Authenticating…')
+  setStatus('connecting', 'Authentification…')
 
   let data
   try {
@@ -875,8 +921,8 @@ async function join() {
     data = await res.json()
     if (!res.ok) {
       console.warn('[VoiceSystem] Auth failed | status:', res.status, '| error:', data.error)
-      showError(data.error || 'Authentication failed.')
-      setStatus('error', 'Authentication failed')
+      showError(data.error || 'Authentification échouée.')
+      setStatus('error', 'Authentification échouée')
       btn.disabled = false
       document.getElementById('userIdInput').disabled = false
       return
@@ -884,14 +930,14 @@ async function join() {
     console.log('[VoiceSystem] Auth OK | LiveKit URL:', data.url)
   } catch (e) {
     console.error('[VoiceSystem] Auth request threw:', e)
-    showError('Cannot reach the server. Check your connection.')
-    setStatus('error', 'Server unreachable')
+    showError('Impossible de joindre le serveur. Vérifiez votre connexion.')
+    setStatus('error', 'Serveur inaccessible')
     btn.disabled = false
     document.getElementById('userIdInput').disabled = false
     return
   }
 
-  setStatus('connecting', 'Connecting to voice room…')
+  setStatus('connecting', 'Connexion à la salle vocale…')
 
   try {
     const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
@@ -929,8 +975,8 @@ async function join() {
     console.log('[VoiceSystem] Processed microphone track published')
   } catch (e) {
     console.error('[VoiceSystem] Connection/track error:', e)
-    showError('Failed to connect to the voice room: ' + (e.message || e))
-    setStatus('error', 'Connection failed')
+    showError('Impossible de se connecter à la salle vocale : ' + (e.message || e))
+    setStatus('error', 'Connexion échouée')
     btn.disabled = false
     document.getElementById('userIdInput').disabled = false
     cleanupAudio()
@@ -941,12 +987,12 @@ async function join() {
   connected = true
   isMuted = false
   isDeafened = false
-  setStatus('connected', 'Connected — voice active')
-  btn.textContent = 'Leave Voice'
+  setStatus('connected', 'Connecté — voix active')
+  btn.textContent = 'Quitter la voix'
   btn.classList.add('leave')
   btn.disabled = false
   document.getElementById('micSection').classList.add('visible')
-  document.getElementById('deviceHint').textContent = 'Connected — you can switch devices live.'
+  document.getElementById('deviceHint').textContent = 'Connecté — changement de périphérique en direct disponible.'
   console.log('[VoiceSystem] Fully connected | starting speaking detection and volume sync')
 
   startSpeakingDetection(userId)
@@ -967,24 +1013,24 @@ async function leave() {
   isMuted = false
   isDeafened = false
 
-  setStatus('', 'Not connected')
+  setStatus('', 'Non connecté')
   const btn = document.getElementById('joinBtn')
-  btn.textContent = 'Join Voice'
+  btn.textContent = 'Rejoindre la voix'
   btn.classList.remove('leave')
   document.getElementById('userIdInput').disabled = false
   document.getElementById('micSection').classList.remove('visible')
   document.getElementById('volumeBar').style.width = '0%'
-  document.getElementById('speakingBadge').textContent = 'Muted'
+  document.getElementById('speakingBadge').textContent = 'Muet'
   document.getElementById('speakingBadge').classList.remove('active')
   document.getElementById('micIcon').classList.remove('speaking')
   document.getElementById('speakingPopup').classList.remove('visible')
 
   document.getElementById('muteBtn').classList.remove('active')
   document.getElementById('muteIcon').textContent = '🎙️'
-  document.getElementById('muteLbl').textContent = 'Mute'
+  document.getElementById('muteLbl').textContent = 'Couper le micro'
   document.getElementById('deafenBtn').classList.remove('active')
   document.getElementById('deafenIcon').textContent = '🔊'
-  document.getElementById('deafenLbl').textContent = 'Deafen'
+  document.getElementById('deafenLbl').textContent = 'Sourdine'
 }
 
 function startSpeakingDetection(userId) {
@@ -992,7 +1038,7 @@ function startSpeakingDetection(userId) {
   socket = io({ auth: { userId } })
   socket.on('connect_error', (e) => {
     console.warn('[VoiceSystem] socket.io connection error:', e.message)
-    showError('Speaking detection unavailable: ' + e.message)
+    showError('Détection de la parole indisponible : ' + e.message)
   })
   socket.on('disconnect', (reason) => {
     console.warn('[VoiceSystem] socket.io disconnected:', reason)
@@ -1024,7 +1070,7 @@ function startSpeakingDetection(userId) {
       lastSpeaking = speaking
       console.log('[VoiceSystem] Speaking state changed ->', speaking, '| volume:', volume.toFixed(2))
       if (!isMuted) {
-        document.getElementById('speakingBadge').textContent = speaking ? 'Speaking' : 'Silent'
+        document.getElementById('speakingBadge').textContent = speaking ? 'En train de parler' : 'Silencieux'
         document.getElementById('speakingBadge').classList.toggle('active', speaking)
         document.getElementById('micIcon').classList.toggle('speaking', speaking)
         document.getElementById('speakingPopup').classList.toggle('visible', speaking)
