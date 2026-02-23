@@ -9,179 +9,292 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --bg:        #070a0f;
+    --surface:   rgba(13, 15, 28, 0.72);
+    --surface2:  rgba(255,255,255,0.04);
+    --border:    rgba(108, 99, 255, 0.18);
+    --border2:   rgba(255,255,255,0.07);
+    --accent:    #6c63ff;
+    --accent2:   #3ecfcf;
+    --red:       #ef4444;
+    --green:     #22c55e;
+    --amber:     #f59e0b;
+    --text:      #e2e8f0;
+    --muted:     #6b7280;
+    --subtle:    #374151;
+    --radius:    16px;
+    --transition: 220ms cubic-bezier(.4,0,.2,1);
+    --footer-h:  3rem;
+  }
+
+  html { scroll-behavior: smooth; }
+
   body {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(rgba(108,99,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,.04) 1px, transparent 1px);
+    background-size: 44px 44px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ── Decorative blur blobs ──────────────────────────────────────────────── */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(110px);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+  }
+  .blob-1 {
+    width: 520px; height: 520px;
+    background: rgba(108,99,255,.13);
+    top: -160px; left: -180px;
+  }
+  .blob-2 {
+    width: 380px; height: 380px;
+    background: rgba(62,207,207,.09);
+    bottom: -100px; right: -120px;
+  }
+  .blob-3 {
+    width: 260px; height: 260px;
+    background: rgba(239,68,68,.06);
+    top: 40%; left: 60%;
+  }
+
+  /* ── Sticky header ──────────────────────────────────────────────────────── */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
     align-items: center;
-    justify-content: center;
-    background: #0f0f14;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    color: #e2e8f0;
+    justify-content: space-between;
+    padding: .85rem 1.5rem;
+    background: rgba(7,10,15,.82);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
   }
 
-  .card {
-    background: #1a1a2e;
-    border: 1px solid #2d2d4e;
-    border-radius: 20px;
-    padding: 2.5rem 2rem;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 25px 60px rgba(0,0,0,.5);
-  }
-
-  .header {
+  .brand {
     display: flex;
     align-items: center;
     gap: .75rem;
-    margin-bottom: 2rem;
+    text-decoration: none;
+    color: inherit;
   }
 
-  .logo {
-    width: 42px;
-    height: 42px;
-    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
-    border-radius: 12px;
+  .brand-logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     flex-shrink: 0;
+    box-shadow: 0 0 18px rgba(108,99,255,.4);
   }
 
-  .header-info { flex: 1; }
-
-  .header h1 {
-    font-size: 1.25rem;
+  .brand-info h1 {
+    font-size: 1rem;
     font-weight: 700;
-    letter-spacing: -.3px;
+    letter-spacing: -.2px;
+    line-height: 1.2;
   }
 
-  .header p {
-    font-size: .75rem;
-    color: #6b7280;
+  .brand-info p {
+    font-size: .72rem;
+    color: var(--muted);
     margin-top: 1px;
   }
 
-  /* Settings gear button */
-  .settings-btn {
-    background: none;
-    border: 1px solid #2d2d4e;
+  .header-settings-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
     border-radius: 10px;
-    width: 38px;
-    height: 38px;
+    width: 38px; height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #6b7280;
+    color: var(--muted);
     flex-shrink: 0;
-    transition: color .2s, border-color .2s, background .2s;
+    transition: color var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    margin-left: auto;
   }
 
-  .settings-btn:hover { color: #e2e8f0; border-color: #6c63ff; background: #12122a; }
+  .header-settings-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(108,99,255,.12);
+    box-shadow: 0 0 14px rgba(108,99,255,.25);
+  }
 
-  /* Status badge */
+  /* ── Main content ───────────────────────────────────────────────────────── */
+  .main-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Glass card ─────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 2rem 1.75rem 1.75rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.04) inset,
+      0 24px 64px rgba(0,0,0,.55),
+      0 0 40px rgba(108,99,255,.07);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* top shimmer line */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(108,99,255,.5), rgba(62,207,207,.4), transparent);
+    border-radius: 22px 22px 0 0;
+  }
+
+  /* ── Status badge ───────────────────────────────────────────────────────── */
   .status-row {
     display: flex;
     align-items: center;
     gap: .5rem;
-    background: #12122a;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
     border-radius: 10px;
-    padding: .65rem 1rem;
+    padding: .6rem 1rem;
     margin-bottom: 1.5rem;
     font-size: .85rem;
   }
 
   .dot {
-    width: 9px;
-    height: 9px;
+    width: 8px; height: 8px;
     border-radius: 50%;
-    background: #4b5563;
+    background: var(--subtle);
     flex-shrink: 0;
-    transition: background .3s;
+    transition: background var(--transition), box-shadow var(--transition);
   }
 
-  .dot.connected   { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
-  .dot.connecting  { background: #f59e0b; animation: pulse 1s infinite; }
-  .dot.error       { background: #ef4444; }
+  .dot.connected   { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,.7); }
+  .dot.connecting  { background: var(--amber); animation: blink 1s infinite; }
+  .dot.error       { background: var(--red); }
 
-  @keyframes pulse {
-    0%,100% { opacity: 1; }
-    50%      { opacity: .3; }
-  }
+  @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.25 } }
 
-  #statusText { flex: 1; color: #9ca3af; }
-  #statusText.connected  { color: #22c55e; }
-  #statusText.connecting { color: #f59e0b; }
-  #statusText.error      { color: #ef4444; }
+  #statusText { flex: 1; color: var(--muted); transition: color var(--transition); }
+  #statusText.connected  { color: var(--green); }
+  #statusText.connecting { color: var(--amber); }
+  #statusText.error      { color: var(--red); }
 
-  /* Input */
+  /* ── Form ───────────────────────────────────────────────────────────────── */
   label {
     display: block;
-    font-size: .8rem;
+    font-size: .75rem;
     font-weight: 600;
-    color: #9ca3af;
+    color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: .05em;
+    letter-spacing: .06em;
     margin-bottom: .45rem;
   }
 
   input[type="text"] {
     width: 100%;
-    background: #12122a;
-    border: 1px solid #2d2d4e;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
     border-radius: 10px;
     padding: .75rem 1rem;
     font-size: .95rem;
-    color: #e2e8f0;
+    color: var(--text);
     outline: none;
-    transition: border-color .2s;
+    transition: border-color var(--transition), box-shadow var(--transition);
     margin-bottom: 1.25rem;
   }
 
-  input[type="text"]:focus { border-color: #6c63ff; }
-  input[type="text"]:disabled { opacity: .5; cursor: not-allowed; }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(108,99,255,.18);
+  }
 
-  /* Button */
+  input[type="text"]:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Join / Leave button ────────────────────────────────────────────────── */
   button#joinBtn {
     width: 100%;
     padding: .85rem;
     border: none;
     border-radius: 12px;
-    font-size: 1rem;
+    font-size: .97rem;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity .2s, transform .1s;
-    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
     color: #fff;
+    letter-spacing: .02em;
+    box-shadow: 0 4px 18px rgba(108,99,255,.35);
   }
 
   button#joinBtn.leave {
-    background: linear-gradient(135deg,#ef4444,#f97316);
+    background: linear-gradient(135deg, var(--red), #f97316);
+    box-shadow: 0 4px 18px rgba(239,68,68,.35);
   }
 
-  button#joinBtn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-  button#joinBtn:disabled { opacity: .45; cursor: not-allowed; }
+  button#joinBtn:hover:not(:disabled) {
+    opacity: .88;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 26px rgba(108,99,255,.4);
+  }
 
-  /* Speaking / mic visualizer */
+  button#joinBtn.leave:hover:not(:disabled) {
+    box-shadow: 0 8px 26px rgba(239,68,68,.4);
+  }
+
+  button#joinBtn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+
+  /* ── Mic section ────────────────────────────────────────────────────────── */
   .mic-section {
     display: none;
     margin-top: 1.5rem;
-    background: #12122a;
-    border-radius: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
     padding: 1rem 1.25rem;
-    gap: .75rem;
+    gap: .8rem;
     flex-direction: column;
   }
 
   .mic-section.visible { display: flex; }
 
   .mic-label {
-    font-size: .8rem;
-    color: #6b7280;
+    font-size: .72rem;
+    color: var(--muted);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: .05em;
+    letter-spacing: .06em;
   }
 
   .mic-row {
@@ -191,16 +304,16 @@
   }
 
   .mic-icon {
-    font-size: 1.3rem;
-    transition: filter .2s;
+    font-size: 1.25rem;
+    transition: filter var(--transition);
   }
 
-  .mic-icon.speaking { filter: drop-shadow(0 0 6px #22c55e); }
+  .mic-icon.speaking { filter: drop-shadow(0 0 7px var(--green)); }
 
   .volume-bar-bg {
     flex: 1;
-    height: 8px;
-    background: #2d2d4e;
+    height: 6px;
+    background: rgba(255,255,255,.08);
     border-radius: 99px;
     overflow: hidden;
   }
@@ -208,32 +321,31 @@
   .volume-bar {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg,#22c55e,#86efac);
+    background: linear-gradient(90deg, var(--green), #86efac);
     border-radius: 99px;
-    transition: width .08s linear;
+    transition: width .07s linear;
   }
 
   .speaking-badge {
-    font-size: .75rem;
+    font-size: .73rem;
     font-weight: 700;
-    padding: .2rem .6rem;
+    padding: .2rem .65rem;
     border-radius: 99px;
-    background: #2d2d4e;
-    color: #6b7280;
-    transition: background .2s, color .2s;
+    background: rgba(255,255,255,.06);
+    color: var(--muted);
+    transition: background var(--transition), color var(--transition);
     white-space: nowrap;
+    border: 1px solid var(--border2);
   }
 
   .speaking-badge.active {
-    background: #14532d;
-    color: #22c55e;
+    background: rgba(34,197,94,.15);
+    color: var(--green);
+    border-color: rgba(34,197,94,.3);
   }
 
-  /* Mute / Deafen control buttons */
-  .controls-row {
-    display: flex;
-    gap: .6rem;
-  }
+  /* ── Control buttons (mute/deafen) ──────────────────────────────────────── */
+  .controls-row { display: flex; gap: .55rem; }
 
   .ctrl-btn {
     flex: 1;
@@ -242,25 +354,29 @@
     justify-content: center;
     gap: .4rem;
     padding: .55rem .75rem;
-    background: #1e1e3a;
-    border: 1px solid #2d2d4e;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
     border-radius: 10px;
-    color: #9ca3af;
-    font-size: .82rem;
+    color: var(--muted);
+    font-size: .8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .2s, border-color .2s, color .2s;
+    transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition);
   }
 
-  .ctrl-btn:hover { background: #252545; border-color: #4b4b7a; color: #e2e8f0; }
+  .ctrl-btn:hover {
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.15);
+    color: var(--text);
+  }
 
   .ctrl-btn.active {
-    background: #3b1a1a;
-    border-color: #ef4444;
-    color: #ef4444;
+    background: rgba(239,68,68,.12);
+    border-color: rgba(239,68,68,.4);
+    color: var(--red);
   }
 
-  /* Volume slider row */
+  /* ── Volume slider ──────────────────────────────────────────────────────── */
   .vol-row {
     display: flex;
     align-items: center;
@@ -268,69 +384,73 @@
   }
 
   .vol-label {
-    font-size: .8rem;
-    color: #6b7280;
+    font-size: .78rem;
+    color: var(--muted);
     white-space: nowrap;
   }
 
   input[type="range"] {
     flex: 1;
     appearance: none;
-    height: 6px;
+    height: 5px;
     border-radius: 99px;
-    background: #2d2d4e;
+    background: rgba(255,255,255,.08);
     outline: none;
     cursor: pointer;
   }
 
   input[type="range"]::-webkit-slider-thumb {
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 15px; height: 15px;
     border-radius: 50%;
-    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
     cursor: pointer;
-    transition: transform .1s;
+    transition: transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 0 8px rgba(108,99,255,.5);
   }
 
-  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    box-shadow: 0 0 14px rgba(108,99,255,.7);
+  }
 
   .vol-value {
-    font-size: .8rem;
+    font-size: .78rem;
     font-weight: 600;
-    color: #9ca3af;
+    color: var(--muted);
     min-width: 2.8rem;
     text-align: right;
   }
 
-  /* Error message */
+  /* ── Error message ──────────────────────────────────────────────────────── */
   #errorMsg {
     display: none;
     margin-top: 1rem;
-    font-size: .82rem;
-    color: #ef4444;
-    background: #2d1515;
+    font-size: .8rem;
+    color: var(--red);
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.2);
     border-radius: 8px;
-    padding: .6rem .9rem;
+    padding: .55rem .9rem;
   }
 
-  /* "Je parle" floating popup */
+  /* ── Speaking popup (floating) ──────────────────────────────────────────── */
   .speaking-popup {
     position: fixed;
-    bottom: 2rem;
+    bottom: calc(var(--footer-h) + 1rem);
     left: 50%;
-    transform: translateX(-50%) translateY(12px);
-    background: linear-gradient(135deg,#22c55e,#16a34a);
+    transform: translateX(-50%) translateY(14px);
+    background: linear-gradient(135deg, var(--green), #16a34a);
     color: #fff;
-    font-size: .95rem;
+    font-size: .92rem;
     font-weight: 700;
-    padding: .6rem 1.4rem;
+    padding: .55rem 1.4rem;
     border-radius: 99px;
     box-shadow: 0 8px 28px rgba(34,197,94,.45);
     opacity: 0;
     pointer-events: none;
-    transition: opacity .2s, transform .2s;
-    z-index: 1000;
+    transition: opacity 220ms ease, transform 220ms ease;
+    z-index: 200;
     white-space: nowrap;
   }
 
@@ -339,18 +459,20 @@
     transform: translateX(-50%) translateY(0);
   }
 
-  /* Settings modal overlay */
+  /* ── Settings overlay / modal ───────────────────────────────────────────── */
   .settings-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,.6);
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 500;
     opacity: 0;
     pointer-events: none;
-    transition: opacity .2s;
+    transition: opacity var(--transition);
   }
 
   .settings-overlay.open {
@@ -359,122 +481,186 @@
   }
 
   .settings-modal {
-    background: #1a1a2e;
-    border: 1px solid #2d2d4e;
-    border-radius: 18px;
+    background: rgba(11, 13, 26, 0.92);
+    backdrop-filter: blur(28px) saturate(1.5);
+    -webkit-backdrop-filter: blur(28px) saturate(1.5);
+    border: 1px solid var(--border);
+    border-radius: 20px;
     width: 100%;
     max-width: 360px;
     margin: 1rem;
-    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    box-shadow: 0 24px 70px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.04) inset;
     overflow: hidden;
+    transform: translateY(10px) scale(.97);
+    transition: transform var(--transition);
+  }
+
+  .settings-overlay.open .settings-modal {
+    transform: translateY(0) scale(1);
   }
 
   .settings-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.1rem 1.4rem;
-    border-bottom: 1px solid #2d2d4e;
+    padding: 1rem 1.4rem;
+    border-bottom: 1px solid var(--border2);
     font-weight: 700;
-    font-size: .95rem;
+    font-size: .92rem;
   }
 
   .settings-close {
     background: none;
     border: none;
-    color: #6b7280;
-    font-size: 1.1rem;
+    color: var(--muted);
+    font-size: 1.05rem;
     cursor: pointer;
     padding: .2rem .4rem;
     border-radius: 6px;
-    transition: color .2s, background .2s;
+    transition: color var(--transition), background var(--transition);
   }
 
-  .settings-close:hover { color: #e2e8f0; background: #2d2d4e; }
+  .settings-close:hover { color: var(--text); background: var(--surface2); }
 
-  .settings-body { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; }
+  .settings-body {
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+  }
 
   .settings-body label { margin-bottom: 0; }
 
   .settings-body select {
     width: 100%;
-    background: #12122a;
-    border: 1px solid #2d2d4e;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
     border-radius: 10px;
     padding: .65rem .9rem;
-    font-size: .9rem;
-    color: #e2e8f0;
+    font-size: .88rem;
+    color: var(--text);
     outline: none;
     cursor: pointer;
-    transition: border-color .2s;
+    transition: border-color var(--transition), box-shadow var(--transition);
   }
 
-  .settings-body select:focus { border-color: #6c63ff; }
+  .settings-body select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(108,99,255,.18);
+  }
 
   .settings-hint {
-    font-size: .78rem;
+    font-size: .76rem;
     color: #4b5563;
   }
+
+  /* ── Footer ─────────────────────────────────────────────────────────────── */
+  .site-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    height: var(--footer-h);
+    padding: 0 1.5rem;
+    border-top: 1px solid var(--border2);
+    background: rgba(7,10,15,.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .site-footer a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color var(--transition);
+  }
+
+  .site-footer a:hover { color: var(--accent2); }
+
+  .footer-dot { opacity: .3; }
 </style>
 </head>
 <body>
 
+<!-- Decorative blobs -->
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
 <!-- "Je parle" floating popup -->
 <div class="speaking-popup" id="speakingPopup">🎙️ Je parle</div>
 
-<div class="card">
-  <div class="header">
-    <div class="logo">🎙️</div>
-    <div class="header-info">
+<!-- ── Sticky header ──────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <div class="brand">
+    <div class="brand-logo">🎙️</div>
+    <div class="brand-info">
       <h1>Roblox Voice</h1>
       <p>Proximity voice chat</p>
     </div>
-    <button class="settings-btn" onclick="openSettings()" title="Audio Settings" id="settingsBtn">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
   </div>
+  <button class="header-settings-btn" onclick="openSettings()" title="Audio Settings" id="settingsBtn" aria-label="Open audio settings">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
 
-  <div class="status-row">
-    <span class="dot" id="statusDot"></span>
-    <span id="statusText">Not connected</span>
-  </div>
+<!-- ── Main content ───────────────────────────────────────────────────────── -->
+<main class="main-content">
+  <div class="card">
+    <div class="status-row">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Not connected</span>
+    </div>
 
-  <label for="userIdInput">Roblox User ID</label>
-  <input type="text" id="userIdInput" placeholder="Enter your Roblox User ID">
+    <label for="userIdInput">Roblox User ID</label>
+    <input type="text" id="userIdInput" placeholder="Enter your Roblox User ID">
 
-  <button id="joinBtn" onclick="toggleVoice()">Join Voice</button>
+    <button id="joinBtn" onclick="toggleVoice()">Join Voice</button>
 
-  <div class="mic-section" id="micSection">
-    <span class="mic-label">Microphone</span>
-    <div class="mic-row">
-      <span class="mic-icon" id="micIcon">🎙️</span>
-      <div class="volume-bar-bg">
-        <div class="volume-bar" id="volumeBar"></div>
+    <div class="mic-section" id="micSection">
+      <span class="mic-label">Microphone</span>
+      <div class="mic-row">
+        <span class="mic-icon" id="micIcon">🎙️</span>
+        <div class="volume-bar-bg">
+          <div class="volume-bar" id="volumeBar"></div>
+        </div>
+        <span class="speaking-badge" id="speakingBadge">Muted</span>
       </div>
-      <span class="speaking-badge" id="speakingBadge">Muted</span>
+
+      <div class="controls-row">
+        <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">
+          <span id="muteIcon">🎙️</span><span id="muteLbl">Mute</span>
+        </button>
+        <button class="ctrl-btn" id="deafenBtn" onclick="toggleDeafen()">
+          <span id="deafenIcon">🔊</span><span id="deafenLbl">Deafen</span>
+        </button>
+      </div>
+
+      <div class="vol-row">
+        <span class="vol-label">🎚️ Volume</span>
+        <input type="range" id="volSlider" min="0" max="200" value="100" oninput="onVolSlider(this.value)">
+        <span class="vol-value" id="volValue">100%</span>
+      </div>
     </div>
 
-    <div class="controls-row">
-      <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">
-        <span id="muteIcon">🎙️</span><span id="muteLbl">Mute</span>
-      </button>
-      <button class="ctrl-btn" id="deafenBtn" onclick="toggleDeafen()">
-        <span id="deafenIcon">🔊</span><span id="deafenLbl">Deafen</span>
-      </button>
-    </div>
-
-    <div class="vol-row">
-      <span class="vol-label">🎚️ Volume</span>
-      <input type="range" id="volSlider" min="0" max="200" value="100" oninput="onVolSlider(this.value)">
-      <span class="vol-value" id="volValue">100%</span>
-    </div>
+    <div id="errorMsg"></div>
   </div>
+</main>
 
-  <div id="errorMsg"></div>
-</div>
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer class="site-footer">
+  <span>Roblox Voice System</span>
+  <span class="footer-dot">•</span>
+  <span>Powered by LiveKit</span>
+  <span class="footer-dot">•</span>
+  <a href="https://livekit.io" target="_blank" rel="noopener">livekit.io</a>
+</footer>
 
 <!-- Settings modal -->
 <div class="settings-overlay" id="settingsOverlay" onclick="handleOverlayClick(event)">
@@ -622,7 +808,6 @@ function toggleMute() {
     document.getElementById('volumeBar').style.width = '0%'
     document.getElementById('speakingPopup').classList.remove('visible')
   } else {
-    // Reset badge immediately on unmute so it doesn't stay stale as "Muted"
     document.getElementById('speakingBadge').textContent = 'Silent'
     document.getElementById('speakingBadge').classList.remove('active')
     document.getElementById('micIcon').classList.remove('speaking')
@@ -709,7 +894,6 @@ async function join() {
   setStatus('connecting', 'Connecting to voice room…')
 
   try {
-    // Build audio processing chain: mic → gain → analyser + destination
     const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
     console.log('[VoiceSystem] Requesting microphone access...')
     const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -740,7 +924,6 @@ async function join() {
     await room.connect(data.url, data.token)
     console.log('[VoiceSystem] Connected to LiveKit room')
 
-    // Publish the processed (gain-adjusted) audio track
     localTrack = new LivekitClient.LocalAudioTrack(dest.stream.getAudioTracks()[0])
     await room.localParticipant.publishTrack(localTrack)
     console.log('[VoiceSystem] Processed microphone track published')
@@ -796,7 +979,6 @@ async function leave() {
   document.getElementById('micIcon').classList.remove('speaking')
   document.getElementById('speakingPopup').classList.remove('visible')
 
-  // Reset control button states
   document.getElementById('muteBtn').classList.remove('active')
   document.getElementById('muteIcon').textContent = '🎙️'
   document.getElementById('muteLbl').textContent = 'Mute'
@@ -835,7 +1017,7 @@ function startSpeakingDetection(userId) {
       console.log('[VoiceSystem] Speaking loop alive | volume:', volume.toFixed(2), '| speaking:', speaking)
     }
 
-    // Update mic visualizer (respect mute: show zero while muted)
+    // Update mic visualizer (respect mute)
     document.getElementById('volumeBar').style.width = isMuted ? '0%' : Math.min(volume, 100) + '%'
 
     if (speaking !== lastSpeaking) {
@@ -847,6 +1029,12 @@ function startSpeakingDetection(userId) {
         document.getElementById('micIcon').classList.toggle('speaking', speaking)
         document.getElementById('speakingPopup').classList.toggle('visible', speaking)
       }
+      // HTTP POST on state change so Roblox's next poll always finds fresh data
+      fetch('/speaking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, speaking })
+      }).catch(() => {})
     }
 
     socket.emit('speaking', { speaking })
@@ -872,7 +1060,6 @@ function startVolumeSync(userId) {
       }
       room.remoteParticipants.forEach(p => {
         const rawVol = volumes[p.identity] || 0
-        // Apply deafen: silence all incoming when deafened
         const vol = isDeafened ? 0 : rawVol
         p.audioTrackPublications.forEach(pub => {
           if (pub.audioTrack) {

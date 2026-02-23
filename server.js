@@ -93,7 +93,7 @@ app.post("/position", (req, res) => {
   res.json({ success: true })
 })
 
-// 🔊 Speaking update via socket.io (replaces HTTP polling)
+// 🔊 Speaking update via socket.io (real-time from browser)
 io.on("connection", (socket) => {
   const userId = socket.handshake.auth?.userId
   socket.on("speaking", ({ speaking }) => {
@@ -101,6 +101,14 @@ io.on("connection", (socket) => {
       speakingStates[userId] = speaking
     }
   })
+})
+
+// 🔊 Speaking update via HTTP POST (fallback / direct push from browser on state change)
+app.post("/speaking", (req, res) => {
+  const { userId, speaking } = req.body
+  if (!userId) return res.status(400).json({ error: "userId is required" })
+  speakingStates[userId] = !!speaking
+  res.json({ success: true })
 })
 
 // 📊 Volume proximity
