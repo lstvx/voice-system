@@ -16,6 +16,39 @@ local modeLabel = script.Parent.ModeLabel
 local speakingIndicator = script.Parent.SpeakingIndicator
 local bar = script.Parent.ProximityBarBG.ProximityBar
 
+-- Build a "Je parle" popup that appears prominently when the player is speaking
+local speakGui = Instance.new("ScreenGui")
+speakGui.Name = "SpeakingPopupGui"
+speakGui.ResetOnSpawn = false
+speakGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+speakGui.Parent = player.PlayerGui
+
+local popup = Instance.new("Frame")
+popup.Name = "SpeakingPopup"
+popup.Size = UDim2.new(0, 220, 0, 56)
+popup.AnchorPoint = Vector2.new(0.5, 1)
+popup.Position = UDim2.new(0.5, 0, 0.88, 0)
+popup.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+popup.BackgroundTransparency = 0.08
+popup.BorderSizePixel = 0
+popup.Visible = false
+popup.ZIndex = 10
+popup.Parent = speakGui
+
+local popupCorner = Instance.new("UICorner")
+popupCorner.CornerRadius = UDim.new(0, 14)
+popupCorner.Parent = popup
+
+local popupLabel = Instance.new("TextLabel")
+popupLabel.Size = UDim2.new(1, 0, 1, 0)
+popupLabel.BackgroundTransparency = 1
+popupLabel.Text = "🎙️  Je parle"
+popupLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+popupLabel.Font = Enum.Font.GothamBold
+popupLabel.TextSize = 20
+popupLabel.ZIndex = 11
+popupLabel.Parent = popup
+
 local MODES = {"Whisper", "Talk", "Shout"}
 local current = 2
 local mode = MODES[current]
@@ -63,8 +96,10 @@ SpeakingUpdated.OnClientEvent:Connect(function(speaking)
 	end
 	if speaking then
 		speakingIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+		popup.Visible = true
 	else
 		speakingIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+		popup.Visible = false
 	end
 end)
 
