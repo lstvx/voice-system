@@ -3,7 +3,7 @@ local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local RAILWAY = "https://YOUR_PROJECT.up.railway.app" -- Replace with your Railway deployment URL
+local RAILWAY = "https://voice-system-production.up.railway.app"
 
 local modeLabel = script.Parent.ModeLabel
 local speakingIndicator = script.Parent.SpeakingIndicator
