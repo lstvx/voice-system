@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roblox Voice System</title>
 <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -260,6 +261,7 @@ let localTrack = null
 let volumeInterval = null
 let speakingFrameId = null
 let connected = false
+let socket = null
 
 console.log('[VoiceSystem] index.html loaded')
 
@@ -386,6 +388,10 @@ async function leave() {
     clearInterval(volumeInterval)
     volumeInterval = null
   }
+  if (socket) {
+    socket.disconnect()
+    socket = null
+  }
   if (localTrack) {
     localTrack.stop()
     localTrack = null
@@ -409,6 +415,16 @@ async function leave() {
 
 function startSpeakingDetection(userId) {
   console.log('[VoiceSystem] startSpeakingDetection() | userId:', userId)
+  socket = io({ auth: { userId } })
+  socket.on('connect_error', (e) => {
+    console.warn('[VoiceSystem] socket.io connection error:', e.message)
+    showError('Speaking detection unavailable: ' + e.message)
+  })
+  socket.on('disconnect', (reason) => {
+    console.warn('[VoiceSystem] socket.io disconnected:', reason)
+  })
+  console.log('[VoiceSystem] socket.io connecting...')
+
   const ctx = new AudioContext()
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 256
@@ -444,11 +460,7 @@ function startSpeakingDetection(userId) {
       document.getElementById('micIcon').classList.toggle('speaking', speaking)
     }
 
-    fetch('/speaking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, speaking })
-    }).catch((e) => { console.warn('[VoiceSystem] /speaking POST failed:', e) })
+    socket.emit('speaking', { speaking })
 
     speakingFrameId = requestAnimationFrame(loop)
   }
