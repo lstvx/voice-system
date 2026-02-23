@@ -47,12 +47,13 @@ UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, mode)
 	end
 end)
 
--- Poll combined state (speaking + volumes) for each player, then push to LocalScript via RemoteEvent
--- One request per player per second keeps total HTTP calls at ≈2N req/s (position + state).
--- Roblox HttpService limit is 500 req/min (~8 req/s), supporting ~4 concurrent players safely.
+-- Poll combined state (speaking + volumes) for each player, then push to LocalScript via RemoteEvent.
+-- Polling at 0.5 s (2 req/s) halves speaking-detection latency vs 1 s.
+-- Each player: 1 req/s (position) + 2 req/s (state at 0.5 s) = 3 req/s.
+-- Safe for up to 2 players (6 req/s = 360 req/min) within Roblox's 500 req/min HttpService limit.
 task.spawn(function()
 	while true do
-		task.wait(1)
+		task.wait(0.5)
 		for _, player in Players:GetPlayers() do
 			local userId = player.UserId
 
