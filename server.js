@@ -4,10 +4,15 @@ import dotenv from "dotenv"
 import axios from "axios"
 import rateLimit from "express-rate-limit"
 import { AccessToken } from "livekit-server-sdk"
+import { createServer } from "http"
+import { Server as SocketIOServer } from "socket.io"
 
 dotenv.config()
 
 const app = express()
+const httpServer = createServer(app)
+const io = new SocketIOServer(httpServer, { cors: { origin: "*" } })
+
 app.use(cors())
 app.use(express.json())
 app.use(express.static("public"))
@@ -88,12 +93,14 @@ app.post("/position", (req, res) => {
   res.json({ success: true })
 })
 
-// 🔊 Speaking update
-app.post("/speaking", (req, res) => {
-  const { userId, speaking } = req.body
-  if (!userId) return res.status(400).json({ error: "userId is required" })
-  speakingStates[userId] = speaking
-  res.json({ success: true })
+// 🔊 Speaking update via socket.io (replaces HTTP polling)
+io.on("connection", (socket) => {
+  const userId = socket.handshake.auth?.userId
+  socket.on("speaking", ({ speaking }) => {
+    if (userId) {
+      speakingStates[userId] = speaking
+    }
+  })
 })
 
 // 📊 Volume proximity
@@ -133,6 +140,6 @@ app.get("/speaking/:userId", (req, res) => {
 })
 
 const port = process.env.PORT || 3000
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Voice server running on port ${port}`)
 })
