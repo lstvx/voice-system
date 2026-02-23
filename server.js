@@ -139,6 +139,44 @@ app.get("/speaking/:userId", (req, res) => {
   })
 })
 
+// 📦 Combined state endpoint (speaking + volumes) — reduces Roblox HTTP request count
+// Supports ~4 players at 1 req/s each (≈480 req/min) within Roblox's 500 req/min HttpService limit.
+app.get("/state/:userId", (req, res) => {
+  const userId = req.params.userId
+  if (!userId || !/^\d+$/.test(userId)) {
+    return res.status(400).json({ error: "Invalid userId" })
+  }
+
+  const me = positions[userId]
+  let volumes = {}
+
+  if (me) {
+    for (let id in positions) {
+      if (id === userId) continue
+      const other = positions[id]
+
+      const dx = me.x - other.x
+      const dy = me.y - other.y
+      const dz = me.z - other.z
+
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      const maxDist = DISTANCES[me.mode] || 25
+
+      let volume = 0
+      if (dist <= maxDist) {
+        volume = 1 - dist / maxDist
+      }
+
+      volumes[id] = volume
+    }
+  }
+
+  res.json({
+    speaking: speakingStates[userId] || false,
+    volumes
+  })
+})
+
 const port = process.env.PORT || 3000
 httpServer.listen(port, () => {
   console.log(`Voice server running on port ${port}`)
