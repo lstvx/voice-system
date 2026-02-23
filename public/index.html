@@ -45,7 +45,10 @@
     align-items: center;
     justify-content: center;
     font-size: 1.4rem;
+    flex-shrink: 0;
   }
+
+  .header-info { flex: 1; }
 
   .header h1 {
     font-size: 1.25rem;
@@ -58,6 +61,24 @@
     color: #6b7280;
     margin-top: 1px;
   }
+
+  /* Settings gear button */
+  .settings-btn {
+    background: none;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    flex-shrink: 0;
+    transition: color .2s, border-color .2s, background .2s;
+  }
+
+  .settings-btn:hover { color: #e2e8f0; border-color: #6c63ff; background: #12122a; }
 
   /* Status badge */
   .status-row {
@@ -208,6 +229,80 @@
     color: #22c55e;
   }
 
+  /* Mute / Deafen control buttons */
+  .controls-row {
+    display: flex;
+    gap: .6rem;
+  }
+
+  .ctrl-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .55rem .75rem;
+    background: #1e1e3a;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    color: #9ca3af;
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, border-color .2s, color .2s;
+  }
+
+  .ctrl-btn:hover { background: #252545; border-color: #4b4b7a; color: #e2e8f0; }
+
+  .ctrl-btn.active {
+    background: #3b1a1a;
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+
+  /* Volume slider row */
+  .vol-row {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+  }
+
+  .vol-label {
+    font-size: .8rem;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    appearance: none;
+    height: 6px;
+    border-radius: 99px;
+    background: #2d2d4e;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
+    cursor: pointer;
+    transition: transform .1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .vol-value {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #9ca3af;
+    min-width: 2.8rem;
+    text-align: right;
+  }
+
   /* Error message */
   #errorMsg {
     display: none;
@@ -218,17 +313,128 @@
     border-radius: 8px;
     padding: .6rem .9rem;
   }
+
+  /* "Je parle" floating popup */
+  .speaking-popup {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: linear-gradient(135deg,#22c55e,#16a34a);
+    color: #fff;
+    font-size: .95rem;
+    font-weight: 700;
+    padding: .6rem 1.4rem;
+    border-radius: 99px;
+    box-shadow: 0 8px 28px rgba(34,197,94,.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 1000;
+    white-space: nowrap;
+  }
+
+  .speaking-popup.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Settings modal overlay */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+
+  .settings-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .settings-modal {
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 360px;
+    margin: 1rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    overflow: hidden;
+  }
+
+  .settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid #2d2d4e;
+    font-weight: 700;
+    font-size: .95rem;
+  }
+
+  .settings-close {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: .2rem .4rem;
+    border-radius: 6px;
+    transition: color .2s, background .2s;
+  }
+
+  .settings-close:hover { color: #e2e8f0; background: #2d2d4e; }
+
+  .settings-body { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; }
+
+  .settings-body label { margin-bottom: 0; }
+
+  .settings-body select {
+    width: 100%;
+    background: #12122a;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    padding: .65rem .9rem;
+    font-size: .9rem;
+    color: #e2e8f0;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+
+  .settings-body select:focus { border-color: #6c63ff; }
+
+  .settings-hint {
+    font-size: .78rem;
+    color: #4b5563;
+  }
 </style>
 </head>
 <body>
 
+<!-- "Je parle" floating popup -->
+<div class="speaking-popup" id="speakingPopup">🎙️ Je parle</div>
+
 <div class="card">
   <div class="header">
     <div class="logo">🎙️</div>
-    <div>
+    <div class="header-info">
       <h1>Roblox Voice</h1>
       <p>Proximity voice chat</p>
     </div>
+    <button class="settings-btn" onclick="openSettings()" title="Audio Settings" id="settingsBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
   </div>
 
   <div class="status-row">
@@ -250,9 +456,41 @@
       </div>
       <span class="speaking-badge" id="speakingBadge">Muted</span>
     </div>
+
+    <div class="controls-row">
+      <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">
+        <span id="muteIcon">🎙️</span><span id="muteLbl">Mute</span>
+      </button>
+      <button class="ctrl-btn" id="deafenBtn" onclick="toggleDeafen()">
+        <span id="deafenIcon">🔊</span><span id="deafenLbl">Deafen</span>
+      </button>
+    </div>
+
+    <div class="vol-row">
+      <span class="vol-label">🎚️ Volume</span>
+      <input type="range" id="volSlider" min="0" max="200" value="100" oninput="onVolSlider(this.value)">
+      <span class="vol-value" id="volValue">100%</span>
+    </div>
   </div>
 
   <div id="errorMsg"></div>
+</div>
+
+<!-- Settings modal -->
+<div class="settings-overlay" id="settingsOverlay" onclick="handleOverlayClick(event)">
+  <div class="settings-modal">
+    <div class="settings-header">
+      <span>⚙️ Audio Settings</span>
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-body">
+      <label for="deviceSelect">Input Device</label>
+      <select id="deviceSelect" onchange="switchDevice(this.value)">
+        <option value="">Default microphone</option>
+      </select>
+      <p class="settings-hint" id="deviceHint">Connect to voice first to enable live device switching.</p>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -262,6 +500,19 @@ let volumeInterval = null
 let speakingFrameId = null
 let connected = false
 let socket = null
+
+// Audio processing
+let audioCtx = null
+let gainNode = null
+let analyserNode = null
+let sourceNode = null
+let rawMicTrack = null
+
+// UI state
+let isMuted = false
+let isDeafened = false
+let micGain = 1.0
+let selectedDevice = null
 
 console.log('[VoiceSystem] index.html loaded')
 
@@ -281,6 +532,129 @@ function showError(msg) {
 
 function clearError() {
   document.getElementById('errorMsg').style.display = 'none'
+}
+
+// ── Settings modal ──────────────────────────────────────────────────────────
+
+function openSettings() {
+  loadDevices()
+  document.getElementById('settingsOverlay').classList.add('open')
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open')
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('settingsOverlay')) closeSettings()
+}
+
+async function loadDevices() {
+  try {
+    // Request permission so labels are available
+    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    tempStream.getTracks().forEach(t => t.stop())
+
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const inputs = devices.filter(d => d.kind === 'audioinput')
+    const sel = document.getElementById('deviceSelect')
+    sel.innerHTML = '<option value="">Default microphone</option>'
+    inputs.forEach((d, i) => {
+      const opt = document.createElement('option')
+      opt.value = d.deviceId
+      opt.textContent = d.label || 'Microphone ' + (i + 1)
+      if (d.deviceId === selectedDevice) opt.selected = true
+      sel.appendChild(opt)
+    })
+    console.log('[VoiceSystem] Enumerated', inputs.length, 'audio input devices')
+  } catch (e) {
+    console.warn('[VoiceSystem] Could not enumerate devices:', e)
+  }
+}
+
+async function switchDevice(deviceId) {
+  selectedDevice = deviceId || null
+  const hint = document.getElementById('deviceHint')
+  if (!connected || !audioCtx || !gainNode) {
+    hint.textContent = 'Will use selected device on next connect.'
+    return
+  }
+  hint.textContent = 'Switching device…'
+  try {
+    const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints)
+    const newRawTrack = newStream.getAudioTracks()[0]
+
+    // Disconnect old source, stop old track
+    if (sourceNode) { sourceNode.disconnect(); sourceNode = null }
+    if (rawMicTrack) rawMicTrack.stop()
+    rawMicTrack = newRawTrack
+
+    // Connect new source into existing gain node
+    sourceNode = audioCtx.createMediaStreamSource(newStream)
+    sourceNode.connect(gainNode)
+
+    hint.textContent = 'Device switched successfully.'
+    console.log('[VoiceSystem] Device switched to:', selectedDevice || 'default')
+  } catch (e) {
+    console.error('[VoiceSystem] Device switch failed:', e)
+    showError('Device switch failed: ' + (e.message || e))
+    hint.textContent = 'Device switch failed.'
+  }
+}
+
+// ── Mute / Deafen / Volume ──────────────────────────────────────────────────
+
+function toggleMute() {
+  if (!connected) return
+  isMuted = !isMuted
+  gainNode.gain.value = isMuted ? 0 : micGain
+
+  const btn = document.getElementById('muteBtn')
+  btn.classList.toggle('active', isMuted)
+  document.getElementById('muteIcon').textContent = isMuted ? '🚫' : '🎙️'
+  document.getElementById('muteLbl').textContent = isMuted ? 'Unmute' : 'Mute'
+
+  if (isMuted) {
+    document.getElementById('speakingBadge').textContent = 'Muted'
+    document.getElementById('speakingBadge').classList.remove('active')
+    document.getElementById('micIcon').classList.remove('speaking')
+    document.getElementById('volumeBar').style.width = '0%'
+    document.getElementById('speakingPopup').classList.remove('visible')
+  } else {
+    // Reset badge immediately on unmute so it doesn't stay stale as "Muted"
+    document.getElementById('speakingBadge').textContent = 'Silent'
+    document.getElementById('speakingBadge').classList.remove('active')
+    document.getElementById('micIcon').classList.remove('speaking')
+  }
+  console.log('[VoiceSystem] Mute toggled:', isMuted)
+}
+
+function toggleDeafen() {
+  if (!connected) return
+  isDeafened = !isDeafened
+
+  const btn = document.getElementById('deafenBtn')
+  btn.classList.toggle('active', isDeafened)
+  document.getElementById('deafenIcon').textContent = isDeafened ? '🔇' : '🔊'
+  document.getElementById('deafenLbl').textContent = isDeafened ? 'Undeafen' : 'Deafen'
+  console.log('[VoiceSystem] Deafen toggled:', isDeafened)
+}
+
+function onVolSlider(val) {
+  micGain = val / 100
+  document.getElementById('volValue').textContent = val + '%'
+  if (gainNode && !isMuted) gainNode.gain.value = micGain
+  console.log('[VoiceSystem] Mic gain set to:', micGain)
+}
+
+// ── Voice connection ────────────────────────────────────────────────────────
+
+function cleanupAudio() {
+  if (sourceNode) { sourceNode.disconnect(); sourceNode = null }
+  if (rawMicTrack) { rawMicTrack.stop(); rawMicTrack = null }
+  if (audioCtx) { audioCtx.close(); audioCtx = null }
+  gainNode = null; analyserNode = null
 }
 
 async function toggleVoice() {
@@ -335,6 +709,25 @@ async function join() {
   setStatus('connecting', 'Connecting to voice room…')
 
   try {
+    // Build audio processing chain: mic → gain → analyser + destination
+    const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
+    console.log('[VoiceSystem] Requesting microphone access...')
+    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    rawMicTrack = stream.getAudioTracks()[0]
+
+    audioCtx = new AudioContext()
+    sourceNode = audioCtx.createMediaStreamSource(stream)
+    gainNode = audioCtx.createGain()
+    gainNode.gain.value = micGain
+    analyserNode = audioCtx.createAnalyser()
+    analyserNode.fftSize = 256
+    const dest = audioCtx.createMediaStreamDestination()
+
+    sourceNode.connect(gainNode)
+    gainNode.connect(analyserNode)
+    gainNode.connect(dest)
+    console.log('[VoiceSystem] Audio processing chain created')
+
     room = new LivekitClient.Room()
     console.log('[VoiceSystem] LiveKit Room created')
 
@@ -347,29 +740,30 @@ async function join() {
     await room.connect(data.url, data.token)
     console.log('[VoiceSystem] Connected to LiveKit room')
 
-    console.log('[VoiceSystem] Requesting microphone access...')
-    const tracks = await LivekitClient.createLocalTracks({ audio: true })
-    localTrack = tracks[0]
-    console.log('[VoiceSystem] Microphone track created:', localTrack)
+    // Publish the processed (gain-adjusted) audio track
+    localTrack = new LivekitClient.LocalAudioTrack(dest.stream.getAudioTracks()[0])
     await room.localParticipant.publishTrack(localTrack)
-    console.log('[VoiceSystem] Microphone track published')
+    console.log('[VoiceSystem] Processed microphone track published')
   } catch (e) {
     console.error('[VoiceSystem] Connection/track error:', e)
     showError('Failed to connect to the voice room: ' + (e.message || e))
     setStatus('error', 'Connection failed')
     btn.disabled = false
     document.getElementById('userIdInput').disabled = false
-    room = null
-    localTrack = null
+    cleanupAudio()
+    room = null; localTrack = null
     return
   }
 
   connected = true
+  isMuted = false
+  isDeafened = false
   setStatus('connected', 'Connected — voice active')
   btn.textContent = 'Leave Voice'
   btn.classList.add('leave')
   btn.disabled = false
   document.getElementById('micSection').classList.add('visible')
+  document.getElementById('deviceHint').textContent = 'Connected — you can switch devices live.'
   console.log('[VoiceSystem] Fully connected | starting speaking detection and volume sync')
 
   startSpeakingDetection(userId)
@@ -380,26 +774,15 @@ async function leave() {
   console.log('[VoiceSystem] leave() called')
   connected = false
 
-  if (speakingFrameId) {
-    cancelAnimationFrame(speakingFrameId)
-    speakingFrameId = null
-  }
-  if (volumeInterval) {
-    clearInterval(volumeInterval)
-    volumeInterval = null
-  }
-  if (socket) {
-    socket.disconnect()
-    socket = null
-  }
-  if (localTrack) {
-    localTrack.stop()
-    localTrack = null
-  }
-  if (room) {
-    room.disconnect()
-    room = null
-  }
+  if (speakingFrameId) { cancelAnimationFrame(speakingFrameId); speakingFrameId = null }
+  if (volumeInterval) { clearInterval(volumeInterval); volumeInterval = null }
+  if (socket) { socket.disconnect(); socket = null }
+  cleanupAudio()
+  if (localTrack) { localTrack.stop(); localTrack = null }
+  if (room) { room.disconnect(); room = null }
+
+  isMuted = false
+  isDeafened = false
 
   setStatus('', 'Not connected')
   const btn = document.getElementById('joinBtn')
@@ -411,6 +794,15 @@ async function leave() {
   document.getElementById('speakingBadge').textContent = 'Muted'
   document.getElementById('speakingBadge').classList.remove('active')
   document.getElementById('micIcon').classList.remove('speaking')
+  document.getElementById('speakingPopup').classList.remove('visible')
+
+  // Reset control button states
+  document.getElementById('muteBtn').classList.remove('active')
+  document.getElementById('muteIcon').textContent = '🎙️'
+  document.getElementById('muteLbl').textContent = 'Mute'
+  document.getElementById('deafenBtn').classList.remove('active')
+  document.getElementById('deafenIcon').textContent = '🔊'
+  document.getElementById('deafenLbl').textContent = 'Deafen'
 }
 
 function startSpeakingDetection(userId) {
@@ -425,14 +817,7 @@ function startSpeakingDetection(userId) {
   })
   console.log('[VoiceSystem] socket.io connecting...')
 
-  const ctx = new AudioContext()
-  const analyser = ctx.createAnalyser()
-  analyser.fftSize = 256
-  const mic = ctx.createMediaStreamSource(new MediaStream([localTrack.mediaStreamTrack]))
-  mic.connect(analyser)
-  console.log('[VoiceSystem] AudioContext + analyser connected to mic track')
-
-  const arr = new Uint8Array(analyser.frequencyBinCount)
+  const arr = new Uint8Array(analyserNode.frequencyBinCount)
   let lastSpeaking = null
   let frameCount = 0
 
@@ -441,7 +826,7 @@ function startSpeakingDetection(userId) {
       console.log('[VoiceSystem] Speaking detection loop stopped (disconnected)')
       return
     }
-    analyser.getByteFrequencyData(arr)
+    analyserNode.getByteFrequencyData(arr)
     const volume = arr.reduce((a, b) => a + b, 0) / arr.length
     const speaking = volume > 30
 
@@ -450,14 +835,18 @@ function startSpeakingDetection(userId) {
       console.log('[VoiceSystem] Speaking loop alive | volume:', volume.toFixed(2), '| speaking:', speaking)
     }
 
-    // Update mic visualizer
-    document.getElementById('volumeBar').style.width = Math.min(volume / 100 * 100, 100) + '%'
+    // Update mic visualizer (respect mute: show zero while muted)
+    document.getElementById('volumeBar').style.width = isMuted ? '0%' : Math.min(volume, 100) + '%'
+
     if (speaking !== lastSpeaking) {
       lastSpeaking = speaking
       console.log('[VoiceSystem] Speaking state changed ->', speaking, '| volume:', volume.toFixed(2))
-      document.getElementById('speakingBadge').textContent = speaking ? 'Speaking' : 'Muted'
-      document.getElementById('speakingBadge').classList.toggle('active', speaking)
-      document.getElementById('micIcon').classList.toggle('speaking', speaking)
+      if (!isMuted) {
+        document.getElementById('speakingBadge').textContent = speaking ? 'Speaking' : 'Silent'
+        document.getElementById('speakingBadge').classList.toggle('active', speaking)
+        document.getElementById('micIcon').classList.toggle('speaking', speaking)
+        document.getElementById('speakingPopup').classList.toggle('visible', speaking)
+      }
     }
 
     socket.emit('speaking', { speaking })
@@ -482,7 +871,9 @@ function startVolumeSync(userId) {
         lastVolumes._prev = volumes
       }
       room.remoteParticipants.forEach(p => {
-        const vol = volumes[p.identity] || 0
+        const rawVol = volumes[p.identity] || 0
+        // Apply deafen: silence all incoming when deafened
+        const vol = isDeafened ? 0 : rawVol
         p.audioTrackPublications.forEach(pub => {
           if (pub.audioTrack) {
             if (lastVolumes[p.identity] !== vol) {
