@@ -47,41 +47,31 @@ UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, mode)
 	end
 end)
 
--- Poll speaking state and volumes for each player, then push to LocalScript via RemoteEvent
+-- Poll combined state (speaking + volumes) for each player, then push to LocalScript via RemoteEvent
+-- One request per player per second keeps total HTTP calls at ≈2N req/s (position + state).
+-- Roblox HttpService limit is 500 req/min (~8 req/s), supporting ~4 concurrent players safely.
 task.spawn(function()
 	while true do
-		task.wait(0.2)
+		task.wait(1)
 		for _, player in Players:GetPlayers() do
 			local userId = player.UserId
 
-			-- Fetch speaking state
-			local okS, resS = pcall(function()
-				return HttpService:GetAsync(RAILWAY .. "/speaking/" .. userId)
+			-- Fetch speaking state + volumes in a single request
+			local ok, res = pcall(function()
+				return HttpService:GetAsync(RAILWAY .. "/state/" .. userId)
 			end)
-			if okS and resS then
+			if ok and res then
 				local ok2, data = pcall(function()
-					return HttpService:JSONDecode(resS)
+					return HttpService:JSONDecode(res)
 				end)
 				if ok2 and data then
 					SpeakingUpdated:FireClient(player, data.speaking or false)
+					if data.volumes then
+						VolumesUpdated:FireClient(player, data.volumes)
+					end
 				end
 			else
-				warn("[VoiceSystem] ERROR fetching speaking state for", player.Name, "- pcall error:", tostring(resS))
-			end
-
-			-- Fetch volume data
-			local okV, resV = pcall(function()
-				return HttpService:GetAsync(RAILWAY .. "/volumes/" .. userId)
-			end)
-			if okV and resV then
-				local ok3, volumes = pcall(function()
-					return HttpService:JSONDecode(resV)
-				end)
-				if ok3 and volumes then
-					VolumesUpdated:FireClient(player, volumes)
-				end
-			else
-				warn("[VoiceSystem] ERROR fetching volumes for", player.Name, "- pcall error:", tostring(resV))
+				warn("[VoiceSystem] ERROR fetching state for", player.Name, "- pcall error:", tostring(res))
 			end
 		end
 	end

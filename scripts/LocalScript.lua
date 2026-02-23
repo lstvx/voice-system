@@ -38,12 +38,12 @@ end)
 task.spawn(function()
 	local positionSentCount = 0
 	while true do
-		task.wait(0.1)
+		task.wait(1)
 		if player.Character and player.Character.PrimaryPart then
 			local pos = player.Character.PrimaryPart.Position
 			UpdatePosition:FireServer(pos.X, pos.Y, pos.Z, mode)
 			positionSentCount += 1
-			if positionSentCount % 100 == 0 then
+			if positionSentCount % 10 == 0 then
 				print("[VoiceSystem] Position sent", positionSentCount, "times | pos:", pos, "| mode:", mode)
 			end
 		else
