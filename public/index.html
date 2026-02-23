@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roblox Voice System</title>
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f0f14;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e2e8f0;
+  }
+
+  .card {
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 25px 60px rgba(0,0,0,.5);
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 2rem;
+  }
+
+  .logo {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+
+  .header h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
+  }
+
+  .header p {
+    font-size: .75rem;
+    color: #6b7280;
+    margin-top: 1px;
+  }
+
+  /* Status badge */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: #12122a;
+    border-radius: 10px;
+    padding: .65rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: .85rem;
+  }
+
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #4b5563;
+    flex-shrink: 0;
+    transition: background .3s;
+  }
+
+  .dot.connected   { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+  .dot.connecting  { background: #f59e0b; animation: pulse 1s infinite; }
+  .dot.error       { background: #ef4444; }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+
+  #statusText { flex: 1; color: #9ca3af; }
+  #statusText.connected  { color: #22c55e; }
+  #statusText.connecting { color: #f59e0b; }
+  #statusText.error      { color: #ef4444; }
+
+  /* Input */
+  label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .45rem;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: #12122a;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    font-size: .95rem;
+    color: #e2e8f0;
+    outline: none;
+    transition: border-color .2s;
+    margin-bottom: 1.25rem;
+  }
+
+  input[type="text"]:focus { border-color: #6c63ff; }
+  input[type="text"]:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Button */
+  button#joinBtn {
+    width: 100%;
+    padding: .85rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    background: linear-gradient(135deg,#6c63ff,#3ecfcf);
+    color: #fff;
+  }
+
+  button#joinBtn.leave {
+    background: linear-gradient(135deg,#ef4444,#f97316);
+  }
+
+  button#joinBtn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+  button#joinBtn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Speaking / mic visualizer */
+  .mic-section {
+    display: none;
+    margin-top: 1.5rem;
+    background: #12122a;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    gap: .75rem;
+    flex-direction: column;
+  }
+
+  .mic-section.visible { display: flex; }
+
+  .mic-label {
+    font-size: .8rem;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .mic-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+
+  .mic-icon {
+    font-size: 1.3rem;
+    transition: filter .2s;
+  }
+
+  .mic-icon.speaking { filter: drop-shadow(0 0 6px #22c55e); }
+
+  .volume-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #2d2d4e;
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .volume-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,#22c55e,#86efac);
+    border-radius: 99px;
+    transition: width .08s linear;
+  }
+
+  .speaking-badge {
+    font-size: .75rem;
+    font-weight: 700;
+    padding: .2rem .6rem;
+    border-radius: 99px;
+    background: #2d2d4e;
+    color: #6b7280;
+    transition: background .2s, color .2s;
+    white-space: nowrap;
+  }
+
+  .speaking-badge.active {
+    background: #14532d;
+    color: #22c55e;
+  }
+
+  /* Error message */
+  #errorMsg {
+    display: none;
+    margin-top: 1rem;
+    font-size: .82rem;
+    color: #ef4444;
+    background: #2d1515;
+    border-radius: 8px;
+    padding: .6rem .9rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="logo">🎙️</div>
+    <div>
+      <h1>Roblox Voice</h1>
+      <p>Proximity voice chat</p>
+    </div>
+  </div>
+
+  <div class="status-row">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Not connected</span>
+  </div>
+
+  <label for="userIdInput">Roblox User ID</label>
+  <input type="text" id="userIdInput" placeholder="Enter your Roblox User ID">
+
+  <button id="joinBtn" onclick="toggleVoice()">Join Voice</button>
+
+  <div class="mic-section" id="micSection">
+    <span class="mic-label">Microphone</span>
+    <div class="mic-row">
+      <span class="mic-icon" id="micIcon">🎙️</span>
+      <div class="volume-bar-bg">
+        <div class="volume-bar" id="volumeBar"></div>
+      </div>
+      <span class="speaking-badge" id="speakingBadge">Muted</span>
+    </div>
+  </div>
+
+  <div id="errorMsg"></div>
+</div>
+
+<script>
+let room = null
+let localTrack = null
+let volumeInterval = null
+let speakingFrameId = null
+let connected = false
+
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot')
+  const statusText = document.getElementById('statusText')
+  dot.className = 'dot ' + state
+  statusText.className = state
+  statusText.textContent = text
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg')
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
+function clearError() {
+  document.getElementById('errorMsg').style.display = 'none'
+}
+
+async function toggleVoice() {
+  if (connected) {
+    await leave()
+  } else {
+    await join()
+  }
+}
+
+async function join() {
+  clearError()
+  const userId = document.getElementById('userIdInput').value.trim()
+  if (!userId) {
+    showError('Please enter your Roblox User ID.')
+    return
+  }
+
+  const btn = document.getElementById('joinBtn')
+  btn.disabled = true
+  document.getElementById('userIdInput').disabled = true
+  setStatus('connecting', 'Authenticating…')
+
+  let data
+  try {
+    const res = await fetch('/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    })
+    data = await res.json()
+    if (!res.ok) {
+      showError(data.error || 'Authentication failed.')
+      setStatus('error', 'Authentication failed')
+      btn.disabled = false
+      document.getElementById('userIdInput').disabled = false
+      return
+    }
+  } catch {
+    showError('Cannot reach the server. Check your connection.')
+    setStatus('error', 'Server unreachable')
+    btn.disabled = false
+    document.getElementById('userIdInput').disabled = false
+    return
+  }
+
+  setStatus('connecting', 'Connecting to voice room…')
+
+  try {
+    room = new LivekitClient.Room()
+
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      if (connected) leave()
+    })
+
+    await room.connect(data.url, data.token)
+
+    const tracks = await LivekitClient.createLocalTracks({ audio: true })
+    localTrack = tracks[0]
+    await room.localParticipant.publishTrack(localTrack)
+  } catch (e) {
+    showError('Failed to connect to the voice room: ' + (e.message || e))
+    setStatus('error', 'Connection failed')
+    btn.disabled = false
+    document.getElementById('userIdInput').disabled = false
+    room = null
+    localTrack = null
+    return
+  }
+
+  connected = true
+  setStatus('connected', 'Connected — voice active')
+  btn.textContent = 'Leave Voice'
+  btn.classList.add('leave')
+  btn.disabled = false
+  document.getElementById('micSection').classList.add('visible')
+
+  startSpeakingDetection(userId)
+  startVolumeSync(userId)
+}
+
+async function leave() {
+  connected = false
+
+  if (speakingFrameId) {
+    cancelAnimationFrame(speakingFrameId)
+    speakingFrameId = null
+  }
+  if (volumeInterval) {
+    clearInterval(volumeInterval)
+    volumeInterval = null
+  }
+  if (localTrack) {
+    localTrack.stop()
+    localTrack = null
+  }
+  if (room) {
+    room.disconnect()
+    room = null
+  }
+
+  setStatus('', 'Not connected')
+  const btn = document.getElementById('joinBtn')
+  btn.textContent = 'Join Voice'
+  btn.classList.remove('leave')
+  document.getElementById('userIdInput').disabled = false
+  document.getElementById('micSection').classList.remove('visible')
+  document.getElementById('volumeBar').style.width = '0%'
+  document.getElementById('speakingBadge').textContent = 'Muted'
+  document.getElementById('speakingBadge').classList.remove('active')
+  document.getElementById('micIcon').classList.remove('speaking')
+}
+
+function startSpeakingDetection(userId) {
+  const ctx = new AudioContext()
+  const analyser = ctx.createAnalyser()
+  analyser.fftSize = 256
+  const mic = ctx.createMediaStreamSource(new MediaStream([localTrack.mediaStreamTrack]))
+  mic.connect(analyser)
+
+  const arr = new Uint8Array(analyser.frequencyBinCount)
+  let lastSpeaking = null
+
+  function loop() {
+    if (!connected) return
+    analyser.getByteFrequencyData(arr)
+    const volume = arr.reduce((a, b) => a + b, 0) / arr.length
+    const speaking = volume > 30
+
+    // Update mic visualizer
+    document.getElementById('volumeBar').style.width = Math.min(volume / 100 * 100, 100) + '%'
+    if (speaking !== lastSpeaking) {
+      lastSpeaking = speaking
+      document.getElementById('speakingBadge').textContent = speaking ? 'Speaking' : 'Muted'
+      document.getElementById('speakingBadge').classList.toggle('active', speaking)
+      document.getElementById('micIcon').classList.toggle('speaking', speaking)
+    }
+
+    fetch('/speaking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, speaking })
+    }).catch(() => {})
+
+    speakingFrameId = requestAnimationFrame(loop)
+  }
+
+  loop()
+}
+
+function startVolumeSync(userId) {
+  volumeInterval = setInterval(async () => {
+    if (!room) return
+    try {
+      const res = await fetch('/volumes/' + userId)
+      const volumes = await res.json()
+      room.remoteParticipants.forEach(p => {
+        const vol = volumes[p.identity] || 0
+        p.audioTrackPublications.forEach(pub => {
+          if (pub.audioTrack) pub.audioTrack.setVolume(vol)
+        })
+      })
+    } catch {}
+  }, 200)
+}
+</script>
+
+</body>
+</html>
