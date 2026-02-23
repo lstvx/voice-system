@@ -1,0 +1,138 @@
+import express from "express"
+import cors from "cors"
+import dotenv from "dotenv"
+import axios from "axios"
+import rateLimit from "express-rate-limit"
+import { AccessToken } from "livekit-server-sdk"
+
+dotenv.config()
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+app.use(express.static("public"))
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+// Note: positions and speakingStates are stored in memory.
+// Data is lost on restart and this does not scale across multiple instances.
+let positions = {}
+let speakingStates = {}
+
+const DISTANCES = {
+  Whisper: 10,
+  Talk: 25,
+  Shout: 60
+}
+
+// 🔐 Vérification Roblox via Open Cloud
+async function verifyUser(userId) {
+  try {
+    const res = await axios.get(
+      `https://apis.roblox.com/cloud/v2/users/${userId}`,
+      {
+        headers: {
+          "x-api-key": process.env.ROBLOX_API_KEY
+        }
+      }
+    )
+    return res.data
+  } catch {
+    return null
+  }
+}
+
+// 🔐 Auth + Token LiveKit
+app.post("/auth", authLimiter, async (req, res) => {
+  const { userId } = req.body
+
+  if (!userId) return res.status(400).json({ error: "userId is required" })
+
+  const user = await verifyUser(userId)
+  if (!user) return res.status(401).json({ error: "Invalid Roblox user" })
+
+  const at = new AccessToken(
+    process.env.LIVEKIT_API_KEY,
+    process.env.LIVEKIT_SECRET,
+    {
+      identity: userId.toString(),
+      name: user.name || "RobloxUser"
+    }
+  )
+
+  at.addGrant({
+    roomJoin: true,
+    room: "roblox-room",
+    canPublish: true,
+    canSubscribe: true
+  })
+
+  const token = await at.toJwt()
+
+  res.json({
+    token,
+    url: process.env.LIVEKIT_URL
+  })
+})
+
+// 📡 Position update
+app.post("/position", (req, res) => {
+  const { userId, x, y, z, mode } = req.body
+  if (!userId) return res.status(400).json({ error: "userId is required" })
+  positions[userId] = { x, y, z, mode }
+  res.json({ success: true })
+})
+
+// 🔊 Speaking update
+app.post("/speaking", (req, res) => {
+  const { userId, speaking } = req.body
+  if (!userId) return res.status(400).json({ error: "userId is required" })
+  speakingStates[userId] = speaking
+  res.json({ success: true })
+})
+
+// 📊 Volume proximity
+app.get("/volumes/:userId", (req, res) => {
+  const me = positions[req.params.userId]
+  if (!me) return res.json({})
+
+  let volumes = {}
+
+  for (let id in positions) {
+    if (id === req.params.userId) continue
+    const other = positions[id]
+
+    const dx = me.x - other.x
+    const dy = me.y - other.y
+    const dz = me.z - other.z
+
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+    const maxDist = DISTANCES[me.mode] || 25
+
+    let volume = 0
+    if (dist <= maxDist) {
+      volume = 1 - dist / maxDist
+    }
+
+    volumes[id] = volume
+  }
+
+  res.json(volumes)
+})
+
+// 🔊 Get speaking state
+app.get("/speaking/:userId", (req, res) => {
+  res.json({
+    speaking: speakingStates[req.params.userId] || false
+  })
+})
+
+const port = process.env.PORT || 3000
+app.listen(port, () => {
+  console.log(`Voice server running on port ${port}`)
+})

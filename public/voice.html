@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Roblox Voice</title>
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+</head>
+<body>
+
+<h2>Roblox Voice</h2>
+<button onclick="join()">Join Voice</button>
+
+<script>
+let room
+let localTrack
+let userId = prompt("Enter Roblox UserId")
+
+async function join() {
+  const res = await fetch("/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId })
+  })
+
+  const data = await res.json()
+
+  if (!res.ok) {
+    alert(data.error || "Authentication failed")
+    return
+  }
+
+  room = new LivekitClient.Room()
+  await room.connect(data.url, data.token)
+
+  const tracks = await LivekitClient.createLocalTracks({ audio: true })
+  localTrack = tracks[0]
+  await room.localParticipant.publishTrack(localTrack)
+
+  detectSpeaking()
+  updateVolumes()
+}
+
+function detectSpeaking() {
+  const ctx = new AudioContext()
+  const analyser = ctx.createAnalyser()
+  const mic = ctx.createMediaStreamSource(new MediaStream([localTrack.mediaStreamTrack]))
+  mic.connect(analyser)
+
+  const arr = new Uint8Array(analyser.frequencyBinCount)
+
+  function loop() {
+    analyser.getByteFrequencyData(arr)
+    const volume = arr.reduce((a, b) => a + b) / arr.length
+    const speaking = volume > 30
+
+    fetch("/speaking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, speaking })
+    })
+
+    requestAnimationFrame(loop)
+  }
+
+  loop()
+}
+
+async function updateVolumes() {
+  setInterval(async () => {
+    const res = await fetch("/volumes/" + userId)
+    const volumes = await res.json()
+
+    room.remoteParticipants.forEach(p => {
+      const vol = volumes[p.identity] || 0
+      p.audioTracks.forEach(pub => {
+        if (pub.audioTrack) pub.audioTrack.setVolume(vol)
+      })
+    })
+  }, 200)
+}
+</script>
+
+</body>
+</html>
