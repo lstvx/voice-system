@@ -261,6 +261,8 @@ let volumeInterval = null
 let speakingFrameId = null
 let connected = false
 
+console.log('[VoiceSystem] index.html loaded')
+
 function setStatus(state, text) {
   const dot = document.getElementById('statusDot')
   const statusText = document.getElementById('statusText')
@@ -294,6 +296,7 @@ async function join() {
     showError('Please enter your Roblox User ID.')
     return
   }
+  console.log('[VoiceSystem] join() called | userId:', userId)
 
   const btn = document.getElementById('joinBtn')
   btn.disabled = true
@@ -302,6 +305,7 @@ async function join() {
 
   let data
   try {
+    console.log('[VoiceSystem] Sending auth request...')
     const res = await fetch('/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -309,13 +313,16 @@ async function join() {
     })
     data = await res.json()
     if (!res.ok) {
+      console.warn('[VoiceSystem] Auth failed | status:', res.status, '| error:', data.error)
       showError(data.error || 'Authentication failed.')
       setStatus('error', 'Authentication failed')
       btn.disabled = false
       document.getElementById('userIdInput').disabled = false
       return
     }
-  } catch {
+    console.log('[VoiceSystem] Auth OK | LiveKit URL:', data.url)
+  } catch (e) {
+    console.error('[VoiceSystem] Auth request threw:', e)
     showError('Cannot reach the server. Check your connection.')
     setStatus('error', 'Server unreachable')
     btn.disabled = false
@@ -327,17 +334,25 @@ async function join() {
 
   try {
     room = new LivekitClient.Room()
+    console.log('[VoiceSystem] LiveKit Room created')
 
     room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      console.log('[VoiceSystem] Room disconnected event fired')
       if (connected) leave()
     })
 
+    console.log('[VoiceSystem] Connecting to LiveKit room...')
     await room.connect(data.url, data.token)
+    console.log('[VoiceSystem] Connected to LiveKit room')
 
+    console.log('[VoiceSystem] Requesting microphone access...')
     const tracks = await LivekitClient.createLocalTracks({ audio: true })
     localTrack = tracks[0]
+    console.log('[VoiceSystem] Microphone track created:', localTrack)
     await room.localParticipant.publishTrack(localTrack)
+    console.log('[VoiceSystem] Microphone track published')
   } catch (e) {
+    console.error('[VoiceSystem] Connection/track error:', e)
     showError('Failed to connect to the voice room: ' + (e.message || e))
     setStatus('error', 'Connection failed')
     btn.disabled = false
@@ -353,12 +368,14 @@ async function join() {
   btn.classList.add('leave')
   btn.disabled = false
   document.getElementById('micSection').classList.add('visible')
+  console.log('[VoiceSystem] Fully connected | starting speaking detection and volume sync')
 
   startSpeakingDetection(userId)
   startVolumeSync(userId)
 }
 
 async function leave() {
+  console.log('[VoiceSystem] leave() called')
   connected = false
 
   if (speakingFrameId) {
@@ -391,25 +408,37 @@ async function leave() {
 }
 
 function startSpeakingDetection(userId) {
+  console.log('[VoiceSystem] startSpeakingDetection() | userId:', userId)
   const ctx = new AudioContext()
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 256
   const mic = ctx.createMediaStreamSource(new MediaStream([localTrack.mediaStreamTrack]))
   mic.connect(analyser)
+  console.log('[VoiceSystem] AudioContext + analyser connected to mic track')
 
   const arr = new Uint8Array(analyser.frequencyBinCount)
   let lastSpeaking = null
+  let frameCount = 0
 
   function loop() {
-    if (!connected) return
+    if (!connected) {
+      console.log('[VoiceSystem] Speaking detection loop stopped (disconnected)')
+      return
+    }
     analyser.getByteFrequencyData(arr)
     const volume = arr.reduce((a, b) => a + b, 0) / arr.length
     const speaking = volume > 30
+
+    frameCount++
+    if (frameCount % 300 === 0) {
+      console.log('[VoiceSystem] Speaking loop alive | volume:', volume.toFixed(2), '| speaking:', speaking)
+    }
 
     // Update mic visualizer
     document.getElementById('volumeBar').style.width = Math.min(volume / 100 * 100, 100) + '%'
     if (speaking !== lastSpeaking) {
       lastSpeaking = speaking
+      console.log('[VoiceSystem] Speaking state changed ->', speaking, '| volume:', volume.toFixed(2))
       document.getElementById('speakingBadge').textContent = speaking ? 'Speaking' : 'Muted'
       document.getElementById('speakingBadge').classList.toggle('active', speaking)
       document.getElementById('micIcon').classList.toggle('speaking', speaking)
@@ -419,7 +448,7 @@ function startSpeakingDetection(userId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, speaking })
-    }).catch(() => {})
+    }).catch((e) => { console.warn('[VoiceSystem] /speaking POST failed:', e) })
 
     speakingFrameId = requestAnimationFrame(loop)
   }
@@ -428,18 +457,33 @@ function startSpeakingDetection(userId) {
 }
 
 function startVolumeSync(userId) {
+  console.log('[VoiceSystem] startVolumeSync() | userId:', userId)
+  const lastVolumes = {}
   volumeInterval = setInterval(async () => {
     if (!room) return
     try {
       const res = await fetch('/volumes/' + userId)
       const volumes = await res.json()
+      const keys = Object.keys(volumes)
+      if (keys.length > 0 && JSON.stringify(volumes) !== JSON.stringify(lastVolumes._prev)) {
+        console.log('[VoiceSystem] Volumes updated | participants:', keys.length, '| volumes:', JSON.stringify(volumes))
+        lastVolumes._prev = volumes
+      }
       room.remoteParticipants.forEach(p => {
         const vol = volumes[p.identity] || 0
         p.audioTrackPublications.forEach(pub => {
-          if (pub.audioTrack) pub.audioTrack.setVolume(vol)
+          if (pub.audioTrack) {
+            if (lastVolumes[p.identity] !== vol) {
+              console.log('[VoiceSystem] Volume changed for', p.identity, '->', vol)
+              lastVolumes[p.identity] = vol
+            }
+            pub.audioTrack.setVolume(vol)
+          }
         })
       })
-    } catch {}
+    } catch (e) {
+      console.warn('[VoiceSystem] /volumes fetch failed:', e)
+    }
   }, 200)
 }
 </script>
