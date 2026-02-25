@@ -81,7 +81,8 @@ app.post("/auth", authLimiter, async (req, res) => {
 
   res.json({
     token,
-    url: process.env.LIVEKIT_URL
+    url: process.env.LIVEKIT_URL,
+    username: user.name || "RobloxUser"
   })
 })
 
