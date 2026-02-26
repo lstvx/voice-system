@@ -1,6 +1,5 @@
 import express from "express"
 import cors from "cors"
-import helmet from "helmet"
 import dotenv from "dotenv"
 import axios from "axios"
 import rateLimit from "express-rate-limit"
@@ -10,45 +9,17 @@ import { Server as SocketIOServer } from "socket.io"
 
 dotenv.config()
 
-const allowedOrigin = process.env.ALLOWED_ORIGIN || null
-
 const app = express()
 const httpServer = createServer(app)
-const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: allowedOrigin || "*",
-    methods: ["GET", "POST"]
-  }
-})
+const io = new SocketIOServer(httpServer, { cors: { origin: "*" } })
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      // 'unsafe-inline' is required until inline scripts/styles are extracted to external files
-      scriptSrc: ["'self'", "https://unpkg.com", "'unsafe-inline'"],
-      connectSrc: ["'self'", "wss:", "https:"],
-      mediaSrc: ["'self'", "blob:"],
-      // 'unsafe-inline' is required until inline styles are extracted to an external stylesheet
-      styleSrc: ["'self'", "'unsafe-inline'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false
-}))
-app.use(cors(allowedOrigin ? { origin: allowedOrigin } : {}))
-app.use(express.json({ limit: "10kb" }))
+app.use(cors())
+app.use(express.json())
 app.use(express.static("public"))
 
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false
-})
-
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 600,
   standardHeaders: true,
   legacyHeaders: false
 })
@@ -119,7 +90,7 @@ app.post("/auth", authLimiter, async (req, res) => {
 })
 
 // 📡 Position update
-app.post("/position", apiLimiter, (req, res) => {
+app.post("/position", (req, res) => {
   const { userId, x, y, z, lx, ly, lz, mode } = req.body
   if (!userId) return res.status(400).json({ error: "userId is required" })
 
@@ -178,7 +149,7 @@ app.get("/connected", (req, res) => {
 })
 
 // 🔊 Speaking update via HTTP POST (fallback / direct push from browser on state change)
-app.post("/speaking", apiLimiter, (req, res) => {
+app.post("/speaking", (req, res) => {
   const { userId, speaking } = req.body
   if (!userId) return res.status(400).json({ error: "userId is required" })
   speakingStates[userId] = !!speaking
