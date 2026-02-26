@@ -28,7 +28,7 @@
     --footer-h:  3rem;
   }
 
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; color-scheme: dark; }
 
   body {
     min-height: 100vh;
@@ -545,7 +545,7 @@
 
   .settings-body select {
     width: 100%;
-    background: var(--surface2);
+    background: #13082a;
     border: 1px solid var(--border2);
     border-radius: 10px;
     padding: .65rem .9rem;
@@ -553,6 +553,7 @@
     color: var(--text);
     outline: none;
     cursor: pointer;
+    color-scheme: dark;
     transition: border-color var(--transition), box-shadow var(--transition);
   }
 
@@ -694,7 +695,7 @@
       </div>
 
       <div class="vol-row">
-        <span class="vol-label">🎚️ Volume</span>
+        <span class="vol-label">🔊 Volume</span>
         <input type="range" id="volSlider" min="0" max="200" value="100" oninput="onVolSlider(this.value)">
         <span class="vol-value" id="volValue">100%</span>
       </div>
