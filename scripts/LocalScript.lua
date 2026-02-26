@@ -4,57 +4,102 @@ local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
-print("[VoiceSystem] LocalScript loaded for player:", player.Name, "| UserId:", player.UserId)
-
--- Wait for RemoteEvents created by the ServerScript
+-- RemoteEvents
 local VoiceSystemEvents = ReplicatedStorage:WaitForChild("VoiceSystemEvents")
 local UpdatePosition    = VoiceSystemEvents:WaitForChild("UpdatePosition")
 local SpeakingUpdated   = VoiceSystemEvents:WaitForChild("SpeakingUpdated")
 local VolumesUpdated    = VoiceSystemEvents:WaitForChild("VolumesUpdated")
 
-local modeLabel = script.Parent.ModeLabel
-local speakingIndicator = script.Parent.SpeakingIndicator
-local bar = script.Parent.ProximityBarBG.ProximityBar
+--========================
+-- UI REFERENCES
+--========================
 
--- Build a "Je parle" popup that appears prominently when the player is speaking
-local speakGui = Instance.new("ScreenGui")
-speakGui.Name = "SpeakingPopupGui"
-speakGui.ResetOnSpawn = false
-speakGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-speakGui.Parent = player.PlayerGui
+local gui = player.PlayerGui:WaitForChild("VoiceGui")
 
-local popup = Instance.new("Frame")
-popup.Name = "SpeakingPopup"
-popup.Size = UDim2.new(0, 220, 0, 56)
-popup.AnchorPoint = Vector2.new(0.5, 1)
-popup.Position = UDim2.new(0.5, 0, 0.88, 0)
-popup.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
-popup.BackgroundTransparency = 0.08
-popup.BorderSizePixel = 0
-popup.Visible = false
-popup.ZIndex = 10
-popup.Parent = speakGui
+local btnWhisper = gui:WaitForChild("Chuchoter")
+local btnTalk    = gui:WaitForChild("Parler")
+local btnShout   = gui:WaitForChild("Crier")
+local btnMute    = gui:WaitForChild("Mute")
+local status     = gui:WaitForChild("Status")
 
-local popupCorner = Instance.new("UICorner")
-popupCorner.CornerRadius = UDim.new(0, 14)
-popupCorner.Parent = popup
+local TweenService = game:GetService("TweenService")
 
-local popupLabel = Instance.new("TextLabel")
-popupLabel.Size = UDim2.new(1, 0, 1, 0)
-popupLabel.BackgroundTransparency = 1
-popupLabel.Text = "🎙️  Je parle"
-popupLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-popupLabel.Font = Enum.Font.GothamBold
-popupLabel.TextSize = 20
-popupLabel.ZIndex = 11
-popupLabel.Parent = popup
+local tweenInfo = TweenInfo.new(
+	0.2,
+	Enum.EasingStyle.Quad,
+	Enum.EasingDirection.Out
+)
 
-local MODES = {"Whisper", "Talk", "Shout"}
+--========================
+-- MODES
+--========================
+
+local MODES = {"Whisper","Talk","Shout","Mute"}
 local current = 2
 local mode = MODES[current]
 
-modeLabel.Text = "Mode: " .. mode
-print("[VoiceSystem] Initial mode:", mode)
+local function tweenTransparency(obj, value)
+	TweenService:Create(obj, tweenInfo, {
+		ImageTransparency = value
+	}):Play()
+end
+local function tweenTextTransparency(obj, value)
+	TweenService:Create(obj, tweenInfo, {
+		TextTransparency = value
+	}):Play()
+end
+
+local function updateUI()
+
+	local active
+
+	if mode == "Whisper" then
+		active = btnWhisper
+	elseif mode == "Talk" then
+		active = btnTalk
+	elseif mode == "Shout" then
+		active = btnShout
+	elseif mode == "Mute" then
+		active = btnMute
+	end
+
+	for _,btn in pairs({btnWhisper, btnTalk, btnShout, btnMute}) do
+		btn.Visible = true
+
+		if btn == active then
+			tweenTransparency(btn, 0.7)
+			tweenTextTransparency(btn.TextLabel, 0)
+		else
+			tweenTransparency(btn, 1)
+			tweenTextTransparency(btn.TextLabel, 1)
+		end
+	end
+end
+
+local function IsPlayerTalkingUI()
+
+	local active
+
+	if mode == "Whisper" then
+		active = btnWhisper
+	elseif mode == "Talk" then
+		active = btnTalk
+	elseif mode == "Shout" then
+		active = btnShout
+	elseif mode == "Mute" then
+		active = btnMute
+	end
+
+	if active then
+		tweenTransparency(active, 0)
+	end
+end
+
+updateUI()
+
+--========================
+-- MODE SWITCH (V)
+--========================
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
@@ -62,57 +107,55 @@ UserInputService.InputBegan:Connect(function(input, gp)
 		current += 1
 		if current > #MODES then current = 1 end
 		mode = MODES[current]
-		modeLabel.Text = "Mode: " .. mode
-		print("[VoiceSystem] Mode changed to:", mode)
+		updateUI()
 	end
 end)
 
--- Send position to ServerScript via RemoteEvent (ServerScript handles HTTP)
+--========================
+-- SEND POSITION
+--========================
+
 task.spawn(function()
-	local positionSentCount = 0
 	while true do
 		task.wait(1)
 		if player.Character and player.Character.PrimaryPart then
 			local pos = player.Character.PrimaryPart.Position
 			UpdatePosition:FireServer(pos.X, pos.Y, pos.Z, mode)
-			positionSentCount += 1
-			if positionSentCount % 10 == 0 then
-				print("[VoiceSystem] Position sent", positionSentCount, "times | pos:", pos, "| mode:", mode)
-			end
-		else
-			if positionSentCount == 0 then
-				print("[VoiceSystem] Waiting for character to load...")
-			end
 		end
 	end
 end)
 
--- Receive speaking state updates from ServerScript
-local lastSpeaking = nil
-SpeakingUpdated.OnClientEvent:Connect(function(speaking)
-	if speaking ~= lastSpeaking then
-		lastSpeaking = speaking
-		print("[VoiceSystem] Speaking state changed:", speaking)
-	end
-	if speaking then
-		speakingIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-		popup.Visible = true
-	else
-		speakingIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-		popup.Visible = false
-	end
+--========================
+-- STATUS ANIMATION
+--========================
+
+local speaking = false
+
+SpeakingUpdated.OnClientEvent:Connect(function(isSpeaking)
+	speaking = isSpeaking
 end)
 
--- Receive volume data from ServerScript
-VolumesUpdated.OnClientEvent:Connect(function(volumes)
-	local maxVol = 0
-	local playerCount = 0
-	for id, v in pairs(volumes) do
-		playerCount += 1
-		if v > maxVol then maxVol = v end
+VolumesUpdated.OnClientEvent:Connect(function(Volumes)
+	warn(Volumes)
+end)
+
+task.spawn(function()
+	local dots = 0
+
+	while true do
+		task.wait(0.4)
+
+		if speaking and mode ~= "Mute" then
+			dots += 1
+			if dots > 3 then
+				dots = 1
+			end
+
+			status.Text = "Vous parlez" .. string.rep(".", dots)
+			IsPlayerTalkingUI()
+		else
+			status.Text = ""
+			dots = 0
+		end
 	end
-	if playerCount > 0 then
-		print("[VoiceSystem] Volumes updated | nearby players:", playerCount, "| maxVol:", maxVol)
-	end
-	bar.Size = UDim2.new(maxVol, 0, 1, 0)
 end)
