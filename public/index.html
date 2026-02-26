@@ -17,6 +17,7 @@
     --border2:   rgba(255,255,255,0.10);
     --accent:    #7c3aed;
     --accent2:   #a855f7;
+    --accent3:   #3b82f6;
     --red:       #ef4444;
     --green:     #22c55e;
     --amber:     #f59e0b;
@@ -37,8 +38,10 @@
     background-color: var(--bg);
     background-image:
       linear-gradient(rgba(168,85,247,.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px);
-    background-size: 44px 44px;
+      linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px),
+      radial-gradient(ellipse 80% 55% at 18% 38%, rgba(124,58,237,.18) 0%, transparent 55%),
+      radial-gradient(ellipse 65% 45% at 82% 65%, rgba(59,130,246,.13) 0%, transparent 55%);
+    background-size: 44px 44px, 44px 44px, auto, auto;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: var(--text);
     overflow-x: hidden;
@@ -67,6 +70,11 @@
     width: 260px; height: 260px;
     background: rgba(239,68,68,.06);
     top: 40%; left: 60%;
+  }
+  .blob-4 {
+    width: 300px; height: 300px;
+    background: rgba(59,130,246,.10);
+    bottom: 10%; left: 5%;
   }
 
   /* ── Sticky header ──────────────────────────────────────────────────────── */
@@ -154,18 +162,19 @@
   /* ── Glass card ─────────────────────────────────────────────────────────── */
   .card {
     background: var(--surface);
-    backdrop-filter: blur(40px) saturate(1.8);
-    -webkit-backdrop-filter: blur(40px) saturate(1.8);
-    border: 1px solid rgba(255,255,255,.14);
+    backdrop-filter: blur(25px) saturate(2);
+    -webkit-backdrop-filter: blur(25px) saturate(2);
+    border: 1px solid rgba(168,85,247,.30);
     border-radius: 24px;
     padding: 2rem 1.75rem 1.75rem;
     width: 100%;
     max-width: 460px;
     box-shadow:
-      0 0 0 1px rgba(255,255,255,.06) inset,
-      0 8px 32px rgba(168,85,247,.12) inset,
-      0 28px 80px rgba(0,0,0,.6),
-      0 0 60px rgba(124,58,237,.1);
+      0 0 0 1px rgba(255,255,255,.07) inset,
+      0 8px 32px rgba(168,85,247,.14) inset,
+      0 28px 80px rgba(0,0,0,.65),
+      0 0 80px rgba(124,58,237,.18),
+      0 0 40px rgba(59,130,246,.08);
     position: relative;
     overflow: hidden;
   }
@@ -300,6 +309,118 @@
   }
 
   .mic-section.visible { display: flex; }
+
+  /* ── Circular orb visualizer ─────────────────────────────────────────────── */
+  .orb-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    height: 130px;
+    margin: .25rem 0 .5rem;
+  }
+
+  .orb {
+    position: relative;
+    width: 80px; height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(124,58,237,.28), rgba(59,130,246,.18));
+    border: 1px solid rgba(168,85,247,.40);
+    box-shadow:
+      0 0 22px rgba(124,58,237,.35),
+      0 0 44px rgba(59,130,246,.12),
+      0 0 10px rgba(168,85,247,.25) inset;
+    transition: box-shadow var(--transition), transform var(--transition), border-color var(--transition);
+    z-index: 2;
+  }
+
+  .orb.speaking {
+    border-color: rgba(168,85,247,.75);
+    box-shadow:
+      0 0 36px rgba(124,58,237,.7),
+      0 0 70px rgba(59,130,246,.3),
+      0 0 14px rgba(168,85,247,.5) inset;
+    animation: orb-pulse .85s ease-in-out infinite;
+  }
+
+  @keyframes orb-pulse {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.07); }
+  }
+
+  .orb-ring {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: ring-expand 2.8s ease-out infinite;
+  }
+  .orb-ring:nth-child(1) {
+    width: 100px; height: 100px;
+    border: 1.5px solid rgba(168,85,247,.30);
+    animation-delay: 0s;
+  }
+  .orb-ring:nth-child(2) {
+    width: 118px; height: 118px;
+    border: 1px solid rgba(59,130,246,.22);
+    animation-delay: .9s;
+  }
+  .orb-ring:nth-child(3) {
+    width: 136px; height: 136px;
+    border: 1px solid rgba(124,58,237,.15);
+    animation-delay: 1.8s;
+  }
+
+  @keyframes ring-expand {
+    0%   { opacity: .65; transform: scale(.94); }
+    100% { opacity: 0;   transform: scale(1.04); }
+  }
+
+  .orb-svg {
+    width: 34px; height: 34px;
+    color: var(--accent2);
+    filter: drop-shadow(0 0 7px rgba(168,85,247,.75));
+    transition: filter var(--transition), color var(--transition);
+  }
+
+  .orb.speaking .orb-svg {
+    filter: drop-shadow(0 0 12px rgba(168,85,247,1)) drop-shadow(0 0 4px rgba(59,130,246,.8));
+  }
+
+  /* ── Animated visualizer bars ────────────────────────────────────────────── */
+  .viz-bars {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 44px;
+    margin: .35rem 0 .55rem;
+  }
+
+  .viz-bar {
+    width: 4px;
+    height: 5px;
+    min-height: 4px;
+    border-radius: 99px;
+    background: linear-gradient(180deg, var(--accent2), var(--accent3));
+    transition: height .055s linear;
+    opacity: .35;
+    box-shadow: 0 0 4px rgba(168,85,247,.3);
+    will-change: height;
+  }
+
+  .viz-bar.active {
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(168,85,247,.65), 0 0 3px rgba(59,130,246,.4);
+  }
+
+  .mic-badge-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: .55rem;
+  }
 
   .mic-label {
     font-size: .72rem;
@@ -636,6 +757,7 @@
 <div class="blob blob-1"></div>
 <div class="blob blob-2"></div>
 <div class="blob blob-3"></div>
+<div class="blob blob-4"></div>
 
 <!-- "Je parle" floating popup -->
 <div class="speaking-popup" id="speakingPopup">🎙️ Je parle</div>
@@ -677,12 +799,43 @@
 
     <div class="mic-section" id="micSection">
       <span class="mic-label">Microphone</span>
-      <div class="mic-row">
+
+      <!-- Circular orb visualizer -->
+      <div class="orb-container">
+        <div class="orb-ring"></div>
+        <div class="orb-ring"></div>
+        <div class="orb-ring"></div>
+        <div class="orb" id="micOrb">
+          <svg class="orb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="8" y1="22" x2="16" y2="22"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Animated visualizer bars -->
+      <div class="viz-bars" id="vizBars">
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div>
+      </div>
+
+      <!-- Speaking badge -->
+      <div class="mic-badge-row">
+        <span class="speaking-badge" id="speakingBadge">Muet</span>
+      </div>
+
+      <!-- Hidden original mic-row kept for JS compatibility -->
+      <div class="mic-row" style="display:none" aria-hidden="true">
         <span class="mic-icon" id="micIcon">🎙️</span>
         <div class="volume-bar-bg">
           <div class="volume-bar" id="volumeBar"></div>
         </div>
-        <span class="speaking-badge" id="speakingBadge">Muet</span>
       </div>
 
       <div class="controls-row">
@@ -868,6 +1021,10 @@ function toggleMute() {
     document.getElementById('micIcon').classList.remove('speaking')
     document.getElementById('volumeBar').style.width = '0%'
     document.getElementById('speakingPopup').classList.remove('visible')
+    const micOrb = document.getElementById('micOrb')
+    if (micOrb) micOrb.classList.remove('speaking')
+    const vizBarsEl = document.getElementById('vizBars')
+    if (vizBarsEl) vizBarsEl.querySelectorAll('.viz-bar').forEach(b => { b.style.height = '4px'; b.classList.remove('active') })
   } else {
     document.getElementById('speakingBadge').textContent = 'Silencieux'
     document.getElementById('speakingBadge').classList.remove('active')
@@ -1085,6 +1242,10 @@ async function leave() {
   document.getElementById('speakingBadge').classList.remove('active')
   document.getElementById('micIcon').classList.remove('speaking')
   document.getElementById('speakingPopup').classList.remove('visible')
+  const micOrb = document.getElementById('micOrb')
+  if (micOrb) micOrb.classList.remove('speaking')
+  const vizBarsEl = document.getElementById('vizBars')
+  if (vizBarsEl) vizBarsEl.querySelectorAll('.viz-bar').forEach(b => { b.style.height = '4px'; b.classList.remove('active') })
 
   document.getElementById('muteBtn').classList.remove('active')
   document.getElementById('muteIcon').textContent = '🎙️'
@@ -1137,6 +1298,26 @@ function startSpeakingDetection(userId) {
 
     // Update mic visualizer (respect mute)
     document.getElementById('volumeBar').style.width = isMuted ? '0%' : Math.min(volume, 100) + '%'
+
+    // Animate visualizer bars — scale [0–255] bin avg to 4–42px height
+    const vizBarsEl = document.getElementById('vizBars')
+    if (vizBarsEl) {
+      const bars = vizBarsEl.querySelectorAll('.viz-bar')
+      const binSize = Math.max(1, Math.floor(arr.length / bars.length))
+      bars.forEach((bar, i) => {
+        const start = i * binSize
+        let sum = 0
+        for (let j = start; j < start + binSize && j < arr.length; j++) sum += arr[j] || 0
+        const avg = isMuted ? 0 : (sum / binSize)
+        const h = 4 + Math.min(avg * 0.38, 38) // 0.38 maps avg ~0–100 to 0–38px
+        bar.style.height = h + 'px'
+        bar.classList.toggle('active', avg > 12) // 12 ≈ noise floor threshold
+      })
+    }
+
+    // Toggle orb speaking state
+    const micOrb = document.getElementById('micOrb')
+    if (micOrb) micOrb.classList.toggle('speaking', speaking && !isMuted)
 
     if (speaking !== lastSpeaking) {
       lastSpeaking = speaking
