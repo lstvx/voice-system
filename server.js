@@ -29,6 +29,9 @@ const authLimiter = rateLimit({
 let positions = {}
 let speakingStates = {}
 
+// Map userId (string) → socket for mute sync
+const userSockets = new Map()
+
 const DISTANCES = {
   Whisper: 10,
   Talk: 25,
@@ -88,9 +91,20 @@ app.post("/auth", authLimiter, async (req, res) => {
 
 // 📡 Position update
 app.post("/position", (req, res) => {
-  const { userId, x, y, z, mode } = req.body
+  const { userId, x, y, z, lx, ly, lz, mode } = req.body
   if (!userId) return res.status(400).json({ error: "userId is required" })
-  positions[userId] = { x, y, z, mode }
+
+  const prevMode = positions[userId]?.mode
+  positions[userId] = { x, y, z, lx, ly, lz, mode }
+
+  // Push mute state change to the user's browser socket
+  if (mode !== prevMode) {
+    const userSocket = userSockets.get(String(userId))
+    if (userSocket) {
+      userSocket.emit("muteState", { muted: mode === "Mute" })
+    }
+  }
+
   res.json({ success: true })
 })
 
@@ -106,6 +120,7 @@ io.on("connection", (socket) => {
   const userId = socket.handshake.auth?.userId
   if (userId) {
     connectedUsers.add(userId)
+    userSockets.set(String(userId), socket)
     broadcastConnectedCount()
   } else {
     // Send current count to newly connected page-load sockets (no userId = counter-only)
@@ -121,6 +136,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     if (userId) {
       connectedUsers.delete(userId)
+      userSockets.delete(String(userId))
       delete speakingStates[userId]
       broadcastConnectedCount()
     }
@@ -174,6 +190,57 @@ app.get("/speaking/:userId", (req, res) => {
   res.json({
     speaking: speakingStates[req.params.userId] || false
   })
+})
+
+// 📦 State-all endpoint — single poll for all players (scalable for 70–120 players)
+// Returns speaking state, per-listener volumes (speaker-based mode, quadratic curve), and positions.
+app.get("/state-all", (req, res) => {
+  const players = {}
+
+  for (let id in positions) {
+    players[id] = {
+      speaking: speakingStates[id] || false,
+      volumes: {},
+      position: positions[id]
+    }
+  }
+
+  for (let id in positions) {
+    const me = positions[id]
+
+    for (let otherId in positions) {
+      if (id === otherId) continue
+
+      const other = positions[otherId]
+
+      // Muted or silent speakers contribute 0 volume
+      if (!speakingStates[otherId] || other.mode === "Mute") {
+        players[id].volumes[otherId] = 0
+        continue
+      }
+
+      const dx = me.x - other.x
+      const dy = me.y - other.y
+      const dz = me.z - other.z
+
+      const distSq = dx * dx + dy * dy + dz * dz
+      const maxDist = DISTANCES[other.mode] || 25
+      const maxDistSq = maxDist * maxDist
+
+      if (distSq > maxDistSq) {
+        players[id].volumes[otherId] = 0
+        continue
+      }
+
+      const dist = Math.sqrt(distSq)
+      // Quadratic natural falloff curve
+      const volume = Math.pow(1 - dist / maxDist, 2)
+
+      players[id].volumes[otherId] = volume
+    }
+  }
+
+  res.json({ players })
 })
 
 // 📦 Combined state endpoint (speaking + volumes) — reduces Roblox HTTP request count
