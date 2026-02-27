@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local RAILWAY = "https://voice-system-production.up.railway.app"
+local RAILWAY = "https://credent.up.railway.app"
 
 -- Create the shared RemoteEvents folder in ReplicatedStorage
 local VoiceSystemEvents = Instance.new("Folder")

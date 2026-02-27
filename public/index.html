@@ -108,7 +108,6 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 0 18px rgba(168,85,247,.5);
     overflow: hidden;
   }
 
@@ -796,11 +795,9 @@
       <span id="statusText">Non connecté</span>
     </div>
 
-    <label for="userIdInput">ID Utilisateur Roblox</label>
-    <input type="text" id="userIdInput" placeholder="Entrez votre ID Utilisateur Roblox">
     <p id="robloxUsername" style="display:none; font-size:.82rem; color:var(--accent2); margin-top:-.7rem; margin-bottom:1.1rem; padding-left:.25rem;"></p>
 
-    <button id="joinBtn" onclick="toggleVoice()">Rejoindre la voix</button>
+    <button id="joinBtn" onclick="handleJoinBtn()">Se connecter avec Roblox</button>
 
     <div class="mic-section" id="micSection">
       <span class="mic-label">Microphone</span>
@@ -915,6 +912,12 @@ let isDeafened = false
 let micGain = 1.0
 let selectedDevice = null
 
+// OAuth session — populated from URL params after /oauth/callback redirect
+let oauthToken = null
+let oauthUserId = null
+let oauthUsername = null
+let livekitUrl = null
+
 console.log('[VoiceSystem] index.html loaded')
 
 // Global socket for live connected count (no auth needed for count updates)
@@ -924,6 +927,35 @@ console.log('[VoiceSystem] index.html loaded')
     document.getElementById('connectedCount').textContent = count
   })
 })()
+
+// Read token + userId from URL params set by /oauth/callback, then clean the URL.
+// The URL is immediately replaced via history.replaceState to remove tokens from browser history.
+;(function initOAuthSession() {
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
+  const userId = params.get('userId')
+  const username = params.get('username')
+  const url = params.get('livekitUrl')
+  if (token && userId) {
+    oauthToken = token
+    oauthUserId = userId
+    oauthUsername = username || 'RobloxUser'
+    livekitUrl = url
+    document.getElementById('joinBtn').textContent = 'Rejoindre la voix'
+    const usernameEl = document.getElementById('robloxUsername')
+    usernameEl.textContent = '👤 ' + oauthUsername
+    usernameEl.style.display = 'block'
+    history.replaceState({}, '', '/')
+  }
+})()
+
+function handleJoinBtn() {
+  if (oauthToken) {
+    toggleVoice()
+  } else {
+    window.location.href = '/login'
+  }
+}
 
 function setStatus(state, text) {
   const dot = document.getElementById('statusDot')
@@ -1079,51 +1111,18 @@ async function toggleVoice() {
 
 async function join() {
   clearError()
-  const userId = document.getElementById('userIdInput').value.trim()
-  if (!userId) {
-    showError('Veuillez entrer votre ID Utilisateur Roblox.')
+  if (!oauthToken || !oauthUserId) {
+    window.location.href = '/login'
     return
   }
+  const userId = oauthUserId
   console.log('[VoiceSystem] join() called | userId:', userId)
 
   const btn = document.getElementById('joinBtn')
   btn.disabled = true
-  document.getElementById('userIdInput').disabled = true
-  setStatus('connecting', 'Authentification…')
-
-  let data
-  try {
-    console.log('[VoiceSystem] Sending auth request...')
-    const res = await fetch('/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
-    })
-    data = await res.json()
-    if (!res.ok) {
-      console.warn('[VoiceSystem] Auth failed | status:', res.status, '| error:', data.error)
-      showError(data.error || 'Authentification échouée.')
-      setStatus('error', 'Authentification échouée')
-      btn.disabled = false
-      document.getElementById('userIdInput').disabled = false
-      return
-    }
-    console.log('[VoiceSystem] Auth OK | LiveKit URL:', data.url)
-    if (data.username) {
-      const usernameEl = document.getElementById('robloxUsername')
-      usernameEl.textContent = '👤 ' + data.username
-      usernameEl.style.display = 'block'
-    }
-  } catch (e) {
-    console.error('[VoiceSystem] Auth request threw:', e)
-    showError('Impossible de joindre le serveur. Vérifiez votre connexion.')
-    setStatus('error', 'Serveur inaccessible')
-    btn.disabled = false
-    document.getElementById('userIdInput').disabled = false
-    return
-  }
-
   setStatus('connecting', 'Connexion à la salle vocale…')
+
+  const data = { token: oauthToken, url: livekitUrl, username: oauthUsername }
 
   try {
     const constraints = { audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true }
@@ -1206,7 +1205,6 @@ async function join() {
     showError('Impossible de se connecter à la salle vocale : ' + (e.message || e))
     setStatus('error', 'Connexion échouée')
     btn.disabled = false
-    document.getElementById('userIdInput').disabled = false
     cleanupAudio()
     room = null; localTrack = null
     return
@@ -1252,7 +1250,6 @@ async function leave() {
   const btn = document.getElementById('joinBtn')
   btn.textContent = 'Rejoindre la voix'
   btn.classList.remove('leave')
-  document.getElementById('userIdInput').disabled = false
   document.getElementById('micSection').classList.remove('visible')
   document.getElementById('volumeBar').style.width = '0%'
   document.getElementById('speakingBadge').textContent = 'Muet'

@@ -17,7 +17,7 @@ app.use(cors())
 app.use(express.json())
 app.use(express.static("public"))
 
-const authLimiter = rateLimit({
+const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -38,90 +38,54 @@ const DISTANCES = {
   Shout: 60
 }
 
-// 🔐 Vérification Roblox via Open Cloud
-async function verifyUser(userId) {
-  try {
-    const res = await axios.get(
-      `https://apis.roblox.com/cloud/v2/users/${userId}`,
-      {
-        headers: {
-          "x-api-key": process.env.ROBLOX_API_KEY
-        }
-      }
-    )
-    return res.data
-  } catch {
-    return null
+const ROBLOX_REDIRECT_URI = "https://credent.up.railway.app/oauth/callback"
+
+// 🔑 OAuth2 login — redirect user to Roblox authorization page
+app.get("/login", loginLimiter, (req, res) => {
+  if (!process.env.ROBLOX_CLIENT_ID) {
+    return res.status(500).send("ROBLOX_CLIENT_ID not configured")
   }
-}
-
-// 🔐 Auth + Token LiveKit
-app.post("/auth", authLimiter, async (req, res) => {
-  const { userId } = req.body
-
-  if (!userId) return res.status(400).json({ error: "userId is required" })
-
-  const user = await verifyUser(userId)
-  if (!user) return res.status(401).json({ error: "Invalid Roblox user" })
-
-  const at = new AccessToken(
-    process.env.LIVEKIT_API_KEY,
-    process.env.LIVEKIT_SECRET,
-    {
-      identity: userId.toString(),
-      name: user.name || "RobloxUser"
-    }
-  )
-
-  at.addGrant({
-    roomJoin: true,
-    room: "roblox-room",
-    canPublish: true,
-    canSubscribe: true
-  })
-
-  const token = await at.toJwt()
-
-  res.json({
-    token,
-    url: process.env.LIVEKIT_URL,
-    username: user.name || "RobloxUser"
-  })
+  const redirectUri = encodeURIComponent(ROBLOX_REDIRECT_URI)
+  const url =
+    "https://apis.roblox.com/oauth/v1/authorize?" +
+    `client_id=${process.env.ROBLOX_CLIENT_ID}` +
+    "&response_type=code" +
+    `&redirect_uri=${redirectUri}` +
+    "&scope=openid%20profile"
+  res.redirect(url)
 })
 
 // 🔑 OAuth2 callback — Roblox redirects here after user authorization
 app.get("/oauth/callback", async (req, res) => {
   const { code } = req.query
-  if (!code) return res.status(400).json({ error: "Missing authorization code" })
+  if (!code) return res.status(400).send("Missing authorization code")
 
-  if (!process.env.ROBLOX_CLIENT_ID || !process.env.ROBLOX_CLIENT_SECRET || !process.env.ROBLOX_REDIRECT_URI) {
-    return res.status(500).json({ error: "OAuth environment variables not configured" })
+  if (!process.env.ROBLOX_CLIENT_ID || !process.env.ROBLOX_CLIENT_SECRET) {
+    return res.status(500).send("OAuth environment variables not configured")
   }
 
   try {
-    const params = new URLSearchParams()
-    params.append("grant_type", "authorization_code")
-    params.append("code", code)
-    params.append("redirect_uri", process.env.ROBLOX_REDIRECT_URI)
-
     const tokenRes = await axios.post(
       "https://apis.roblox.com/oauth/v1/token",
-      params,
-      {
-        auth: {
-          username: process.env.ROBLOX_CLIENT_ID,
-          password: process.env.ROBLOX_CLIENT_SECRET
-        },
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      }
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: ROBLOX_REDIRECT_URI,
+        client_id: process.env.ROBLOX_CLIENT_ID,
+        client_secret: process.env.ROBLOX_CLIENT_SECRET
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     )
 
-    const { id_token } = tokenRes.data
+    const accessToken = tokenRes.data.access_token
 
-    // Decode id_token payload — token is received directly from Roblox's HTTPS endpoint
-    const payload = JSON.parse(Buffer.from(id_token.split(".")[1], "base64url").toString())
-    const userId = payload.sub
-    const username = payload.preferred_username || payload.name || "RobloxUser"
+    const userRes = await axios.get(
+      "https://apis.roblox.com/oauth/v1/userinfo",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+
+    const userId = userRes.data.sub
+    const username = userRes.data.name || userRes.data.preferred_username || "RobloxUser"
 
     const at = new AccessToken(
       process.env.LIVEKIT_API_KEY,
@@ -131,11 +95,14 @@ app.get("/oauth/callback", async (req, res) => {
     at.addGrant({ roomJoin: true, room: "roblox-room", canPublish: true, canSubscribe: true })
     const token = await at.toJwt()
 
-    res.json({ token, url: process.env.LIVEKIT_URL, userId, username })
+    res.redirect(
+      `/?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&livekitUrl=${encodeURIComponent(process.env.LIVEKIT_URL)}`
+    )
   } catch (err) {
-    const status = err.response?.status || 401
-    const detail = err.response?.data?.error_description || err.message || "Unknown error"
-    res.status(status).json({ error: "OAuth token exchange failed", detail })
+    const status = err.response?.status || 500
+    const detail = err.response?.data?.error || err.message || "Unknown error"
+    console.error(`[VoiceSystem] OAuth callback error: HTTP ${status} — ${detail}`)
+    res.status(500).send("Authentication failed. Please try again.")
   }
 })
 
