@@ -99,15 +99,46 @@ end
 updateUI()
 
 --========================
--- MODE SWITCH (V)
+-- V KEY (SHORT / LONG PRESS)
 --========================
+
+local HOLD_TIME = 1.5
+local holding = false
+local holdStart = 0
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
-	if input.KeyCode == Enum.KeyCode.V then
+	if input.KeyCode ~= Enum.KeyCode.V then return end
+
+	holding = true
+	holdStart = tick()
+end)
+
+UserInputService.InputEnded:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode ~= Enum.KeyCode.V then return end
+
+	if not holding then return end
+	holding = false
+
+	local duration = tick() - holdStart
+
+	-- 🎯 LONG PRESS = CHANGE MODE
+	if duration >= HOLD_TIME then
 		current += 1
 		if current > #MODES then current = 1 end
 		mode = MODES[current]
+		updateUI()
+
+	else
+		-- 🎯 SHORT PRESS = TOGGLE MUTE
+
+		if mode == "Mute" then
+			mode = MODES[current ~= 4 and current or 2]
+		else
+			mode = "Mute"
+		end
+
 		updateUI()
 	end
 end)
@@ -139,7 +170,7 @@ SpeakingUpdated.OnClientEvent:Connect(function(isSpeaking)
 end)
 
 VolumesUpdated.OnClientEvent:Connect(function(Volumes)
-	warn(Volumes)
+	-- Volumes is a table like { [userid] = volume, ... }
 end)
 
 -- Receive spatial position data from the server (forwarded by ServerScript)
@@ -165,6 +196,7 @@ task.spawn(function()
 		else
 			status.Text = ""
 			dots = 0
+			updateUI()
 		end
 	end
 end)
