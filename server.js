@@ -39,6 +39,27 @@ const DISTANCES = {
 }
 
 // 🔐 Vérification Roblox via Open Cloud
+// ──────────────────────────────────────────────────────────────────────────────
+// NOTE — Migration vers Roblox Auth v2 (OAuth2 / OpenID Connect) :
+//
+// Pour passer à l'OAuth2 Roblox vous aurez besoin de :
+//   1. Créer une application OAuth2 sur https://create.roblox.com/dashboard/credentials
+//      → obtenir un CLIENT_ID et un CLIENT_SECRET.
+//   2. Définir une redirect_uri dans votre app (ex. https://votre-domaine.com/auth/callback).
+//   3. Ajouter les env vars : ROBLOX_CLIENT_ID, ROBLOX_CLIENT_SECRET, ROBLOX_REDIRECT_URI.
+//   4. Remplacer le flow actuel par :
+//      a. GET /auth/login  → redirige vers https://apis.roblox.com/oauth/v1/authorize
+//         avec les params : client_id, redirect_uri, scope (openid profile), response_type=code.
+//      b. GET /auth/callback?code=... → échange le code contre un access_token + id_token
+//         via POST https://apis.roblox.com/oauth/v1/token (client_credentials en Basic Auth).
+//      c. Décoder l'id_token (JWT) pour obtenir le userId et le nom d'utilisateur Roblox
+//         sans appel supplémentaire à l'API Open Cloud.
+//      d. Générer le jeton LiveKit à partir des claims extraits de l'id_token.
+//   5. Gérer le refresh_token si vous souhaitez des sessions persistantes.
+//
+// Scopes utiles : openid (userId), profile (displayName, username).
+// Ref : https://create.roblox.com/docs/cloud/reference/oauth2
+// ──────────────────────────────────────────────────────────────────────────────
 async function verifyUser(userId) {
   try {
     const res = await axios.get(

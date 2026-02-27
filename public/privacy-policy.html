@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Politique de confidentialité – Avenir Lointain</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #07050f;
+    --surface:   rgba(18, 12, 40, 0.50);
+    --surface2:  rgba(255,255,255,0.07);
+    --border:    rgba(168, 85, 247, 0.28);
+    --border2:   rgba(255,255,255,0.10);
+    --accent:    #7c3aed;
+    --accent2:   #a855f7;
+    --accent3:   #3b82f6;
+    --text:      #e2e8f0;
+    --muted:     #6b7280;
+    --radius:    16px;
+    --transition: 220ms cubic-bezier(.4,0,.2,1);
+    --footer-h:  3rem;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(rgba(168,85,247,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px),
+      radial-gradient(ellipse 80% 55% at 18% 38%, rgba(124,58,237,.18) 0%, transparent 55%),
+      radial-gradient(ellipse 65% 45% at 82% 65%, rgba(59,130,246,.13) 0%, transparent 55%);
+    background-size: 44px 44px, 44px 44px, auto, auto;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(110px);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+  }
+  .blob-1 { width: 520px; height: 520px; background: rgba(124,58,237,.18); top: -160px; left: -180px; }
+  .blob-2 { width: 380px; height: 380px; background: rgba(168,85,247,.13); bottom: -100px; right: -120px; }
+
+  /* ── Header ── */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    padding: .85rem 1.5rem;
+    background: rgba(10,7,20,.6);
+    backdrop-filter: blur(28px) saturate(1.8);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    gap: 1rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .brand-logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 18px rgba(168,85,247,.5);
+  }
+
+  .brand-info h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.2px; line-height: 1.2; }
+  .brand-info p  { font-size: .72rem; color: var(--muted); margin-top: 1px; }
+
+  /* ── Main ── */
+  .main-content {
+    flex: 1;
+    padding: 3rem 1rem 4rem;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .prose {
+    width: 100%;
+    max-width: 780px;
+    background: var(--surface);
+    backdrop-filter: blur(25px) saturate(2);
+    -webkit-backdrop-filter: blur(25px) saturate(2);
+    border: 1px solid rgba(168,85,247,.30);
+    border-radius: 24px;
+    padding: 2.5rem 2.25rem;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.07) inset,
+      0 8px 32px rgba(168,85,247,.14) inset,
+      0 28px 80px rgba(0,0,0,.65),
+      0 0 80px rgba(124,58,237,.18),
+      0 0 40px rgba(59,130,246,.08);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .prose::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168,85,247,.6), rgba(124,58,237,.5), transparent);
+    border-radius: 24px 24px 0 0;
+  }
+
+  .prose-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    background: rgba(168,85,247,.12);
+    border: 1px solid rgba(168,85,247,.25);
+    border-radius: 999px;
+    padding: .25rem .75rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .prose h2 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -.4px;
+    line-height: 1.25;
+    margin-bottom: .4rem;
+    background: linear-gradient(135deg, #fff 30%, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .prose-meta {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .prose h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-top: 2rem;
+    margin-bottom: .6rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .prose h3::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 1em;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .prose p {
+    font-size: .93rem;
+    line-height: 1.7;
+    color: rgba(226,232,240,.85);
+    margin-bottom: .9rem;
+  }
+
+  .prose ul {
+    list-style: none;
+    margin-bottom: .9rem;
+    padding-left: .25rem;
+  }
+
+  .prose ul li {
+    font-size: .93rem;
+    line-height: 1.7;
+    color: rgba(226,232,240,.85);
+    padding-left: 1.4rem;
+    position: relative;
+    margin-bottom: .35rem;
+  }
+
+  .prose ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent2);
+    font-size: .8rem;
+  }
+
+  .prose a {
+    color: var(--accent2);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(168,85,247,.3);
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .prose a:hover { color: #fff; border-bottom-color: var(--accent2); }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.25rem;
+    font-size: .88rem;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: .6rem 1rem;
+    background: rgba(168,85,247,.12);
+    color: var(--accent2);
+    font-weight: 600;
+    border-bottom: 1px solid rgba(168,85,247,.25);
+  }
+
+  .data-table th:first-child { border-radius: 8px 0 0 0; }
+  .data-table th:last-child  { border-radius: 0 8px 0 0; }
+
+  .data-table td {
+    padding: .55rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    color: rgba(226,232,240,.8);
+    vertical-align: top;
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,.03); }
+
+  .info-box {
+    background: rgba(59,130,246,.08);
+    border: 1px solid rgba(59,130,246,.22);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: .88rem;
+    color: rgba(226,232,240,.8);
+    line-height: 1.65;
+  }
+
+  /* ── Footer ── */
+  .site-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    height: var(--footer-h);
+    padding: 0 1.5rem;
+    border-top: 1px solid var(--border2);
+    background: rgba(7,10,15,.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .site-footer a { color: var(--muted); text-decoration: none; transition: color var(--transition); }
+  .site-footer a:hover { color: var(--accent2); }
+  .footer-dot { opacity: .3; }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<!-- Header -->
+<header class="site-header">
+  <a href="/" class="brand">
+    <div class="brand-logo">🎙️</div>
+    <div class="brand-info">
+      <h1>Avenir Lointain</h1>
+      <p>Chat vocal de proximité</p>
+    </div>
+  </a>
+</header>
+
+<!-- Main -->
+<main class="main-content">
+  <article class="prose">
+
+    <div class="prose-badge">🔒 Confidentialité</div>
+    <h2>Politique de confidentialité</h2>
+    <p class="prose-meta">Dernière mise à jour : 27 février 2026</p>
+
+    <div class="info-box">
+      La protection de votre vie privée est une priorité. Cette politique explique quelles données
+      sont collectées lors de l'utilisation du chat vocal <strong>Avenir Lointain</strong>, comment
+      elles sont utilisées et quels sont vos droits.
+    </div>
+
+    <h3>1. Responsable du traitement</h3>
+    <p>
+      Le service Avenir Lointain est opéré par l'équipe de développement de l'expérience Roblox
+      du même nom. Pour toute question relative à vos données personnelles, vous pouvez nous
+      contacter via le serveur Discord officiel ou directement sur la page Roblox du projet.
+    </p>
+
+    <h3>2. Données collectées</h3>
+    <p>Lors de l'utilisation du service, les données suivantes sont traitées :</p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Donnée</th>
+          <th>Source</th>
+          <th>Finalité</th>
+          <th>Conservation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>userId Roblox</strong></td>
+          <td>Roblox (jeu)</td>
+          <td>Authentification, génération du jeton audio</td>
+          <td>Durée de la session</td>
+        </tr>
+        <tr>
+          <td><strong>Nom d'utilisateur Roblox</strong></td>
+          <td>API Open Cloud Roblox</td>
+          <td>Affichage dans l'interface vocale</td>
+          <td>Durée de la session</td>
+        </tr>
+        <tr>
+          <td><strong>Position en jeu (x, y, z)</strong></td>
+          <td>Roblox (jeu)</td>
+          <td>Calcul du volume de proximité</td>
+          <td>En mémoire — effacée à la déconnexion</td>
+        </tr>
+        <tr>
+          <td><strong>Mode vocal</strong> (Talk / Whisper / Shout / Mute)</td>
+          <td>Roblox (jeu)</td>
+          <td>Réglage de la portée vocale</td>
+          <td>En mémoire — effacée à la déconnexion</td>
+        </tr>
+        <tr>
+          <td><strong>État de parole</strong> (speaking / muet)</td>
+          <td>Navigateur / microphone</td>
+          <td>Affichage en temps réel pour les autres joueurs</td>
+          <td>En mémoire — effacée à la déconnexion</td>
+        </tr>
+        <tr>
+          <td><strong>Flux audio</strong></td>
+          <td>Microphone du navigateur</td>
+          <td>Transmission audio en temps réel via LiveKit</td>
+          <td>Non stocké — transit uniquement</td>
+        </tr>
+        <tr>
+          <td><strong>Adresse IP</strong></td>
+          <td>Connexion réseau</td>
+          <td>Acheminement réseau, protection contre les abus</td>
+          <td>Journaux serveur — 7 jours maximum</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>3. Données non collectées</h3>
+    <p>Nous ne collectons <strong>pas</strong> :</p>
+    <ul>
+      <li>De mot de passe ou identifiant de connexion Roblox.</li>
+      <li>D'enregistrements audio ou de transcriptions vocales.</li>
+      <li>D'informations de paiement.</li>
+      <li>De données de localisation géographique réelle (hors IP).</li>
+      <li>De cookies de suivi publicitaire.</li>
+    </ul>
+
+    <h3>4. Utilisation des données</h3>
+    <p>Les données collectées sont utilisées exclusivement pour :</p>
+    <ul>
+      <li>Vérifier que vous êtes un utilisateur Roblox valide avant de rejoindre la session vocale.</li>
+      <li>Calculer et ajuster les volumes audio en temps réel selon la distance en jeu.</li>
+      <li>Afficher votre état vocal (parole, muet) aux autres joueurs dans votre portée.</li>
+      <li>Protéger le service contre les abus via la limitation du débit de requêtes.</li>
+    </ul>
+    <p>Vos données ne sont jamais vendues, revendues, louées ou partagées avec des tiers à des fins commerciales.</p>
+
+    <h3>5. Partage des données avec des tiers</h3>
+    <p>Pour assurer le fonctionnement du service, certaines données transitent par des services tiers :</p>
+    <ul>
+      <li>
+        <strong>LiveKit</strong> — Infrastructure de communication audio en temps réel.
+        Votre userId et votre flux audio sont transmis aux serveurs LiveKit pour la gestion de la salle vocale.
+        Consultez la <a href="https://livekit.io/privacy" target="_blank" rel="noopener noreferrer">politique de confidentialité de LiveKit</a>.
+      </li>
+      <li>
+        <strong>Roblox Corporation</strong> — Votre userId est vérifié via l'API Open Cloud de Roblox.
+        Consultez la <a href="https://en.help.roblox.com/hc/en-us/articles/115004630823" target="_blank" rel="noopener noreferrer">politique de confidentialité de Roblox</a>.
+      </li>
+    </ul>
+
+    <h3>6. Sécurité des données</h3>
+    <p>Nous appliquons les mesures suivantes pour protéger vos données :</p>
+    <ul>
+      <li>Les jetons d'accès LiveKit sont à usage unique, liés à une session et signés par clé secrète.</li>
+      <li>Les communications entre le navigateur et le serveur sont chiffrées via HTTPS/WSS.</li>
+      <li>La limite de débit sur l'endpoint d'authentification protège contre les attaques par force brute.</li>
+      <li>Aucune donnée de session n'est persistée en base de données — tout est en mémoire vive et effacé à la déconnexion.</li>
+    </ul>
+
+    <h3>7. Durée de conservation</h3>
+    <p>
+      Toutes les données de session (position, état vocal, identifiant) sont stockées
+      <strong>uniquement en mémoire vive</strong> pendant la durée de la connexion et sont
+      automatiquement supprimées dès que vous quittez l'expérience Roblox ou fermez la page vocale.
+      Aucune donnée personnelle n'est conservée entre deux sessions.
+    </p>
+
+    <h3>8. Vos droits</h3>
+    <p>Conformément au RGPD et aux lois applicables sur la protection des données, vous disposez des droits suivants :</p>
+    <ul>
+      <li><strong>Droit d'accès</strong> — demander quelles données vous concernent sont traitées.</li>
+      <li><strong>Droit de rectification</strong> — demander la correction de données inexactes.</li>
+      <li><strong>Droit à l'effacement</strong> — demander la suppression de vos données.</li>
+      <li><strong>Droit à la portabilité</strong> — recevoir vos données dans un format structuré.</li>
+      <li><strong>Droit d'opposition</strong> — vous opposer à certains traitements de vos données.</li>
+    </ul>
+    <p>
+      Étant donné que nous ne conservons aucune donnée entre les sessions, la plupart de ces droits
+      s'exercent automatiquement à la déconnexion. Pour toute demande, contactez-nous via
+      notre serveur Discord ou la page Roblox du projet.
+    </p>
+
+    <h3>9. Mineurs</h3>
+    <p>
+      Roblox impose ses propres restrictions d'âge et contrôles parentaux. Avenir Lointain
+      respecte ces règles et ne collecte pas sciemment de données de mineurs de moins de 13 ans
+      au-delà de ce que Roblox autorise via ses contrôles parentaux.
+    </p>
+
+    <h3>10. Modifications de cette politique</h3>
+    <p>
+      Nous nous réservons le droit de modifier cette politique de confidentialité à tout moment.
+      La date de dernière mise à jour sera actualisée en haut de cette page.
+      L'utilisation continue du service après modification vaut acceptation de la nouvelle politique.
+    </p>
+
+    <h3>11. Contact</h3>
+    <p>
+      Pour toute question ou demande concernant vos données personnelles, contactez-nous via
+      le serveur Discord officiel d'Avenir Lointain ou directement sur la page Roblox de l'expérience.
+    </p>
+
+  </article>
+</main>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <a href="/">Avenir Lointain</a>
+  <span class="footer-dot">•</span>
+  <a href="/terms-of-service.html">Conditions d'utilisation</a>
+  <span class="footer-dot">•</span>
+  <a href="/privacy-policy.html">Politique de confidentialité</a>
+</footer>
+
+</body>
+</html>
