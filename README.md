@@ -46,12 +46,12 @@ PORT=3000
 2. Create a new Railway project from the repo
 3. In Project → Variables, add all environment variables from above
 4. Railway will auto-deploy on push
-5. Open `https://voice-system-production.up.railway.app/` — the voice UI is served at the root
+5. Open `https://credent.up.railway.app/` — the voice UI is served at the root
 
 ### 6. Roblox Script
 
 1. Open `scripts/LocalScript.lua`
-2. The script already uses the production URL `https://voice-system-production.up.railway.app`. Update it if you deploy to a different Railway URL.
+2. The script already uses the production URL `https://credent.up.railway.app`. Update it if you deploy to a different Railway URL.
 3. Add the script as a LocalScript inside a ScreenGui in StarterGui
 4. Create child UI elements: `ModeLabel` (TextLabel), `SpeakingIndicator` (Frame), `ProximityBarBG` (Frame) → `ProximityBar` (Frame)
 
