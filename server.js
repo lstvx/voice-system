@@ -37,7 +37,7 @@ const DISTANCES = {
   Talk: 25,
   Shout: 60
 }
-
+console.log("CLIENT ID:", process.env.ROBLOX_CLIENT_ID)
 const ROBLOX_REDIRECT_URI = "https://credent.up.railway.app/oauth/callback"
 
 // 🔑 OAuth2 login — redirect user to Roblox authorization page
