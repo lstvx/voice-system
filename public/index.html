@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Avenir Lointain</title>
+<title>AOT:Avenir Lointain</title>
 <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <style>
@@ -103,14 +103,19 @@
 
   .brand-logo {
     width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
     flex-shrink: 0;
     box-shadow: 0 0 18px rgba(168,85,247,.5);
+    overflow: hidden;
+  }
+
+  .brand-logo img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
   }
 
   .brand-info h1 {
@@ -765,9 +770,9 @@
 <!-- ── Sticky header ──────────────────────────────────────────────────────── -->
 <header class="site-header">
   <div class="brand">
-    <div class="brand-logo">🎙️</div>
+    <div class="brand-logo"><img src="/Logo_AOT_AL.png" alt="AOT:Avenir Lointain"></div>
     <div class="brand-info">
-      <h1>Avenir Lointain</h1>
+      <h1>AOT:Avenir Lointain</h1>
       <p>Chat vocal de proximité</p>
     </div>
   </div>
@@ -860,7 +865,7 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="site-footer">
-  <span>Avenir Lointain</span>
+  <span>AOT:Avenir Lointain</span>
   <span class="footer-dot">•</span>
   <span>Chat vocal de proximité</span>
   <span class="footer-dot">•</span>
