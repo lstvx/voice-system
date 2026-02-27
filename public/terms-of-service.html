@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conditions d'utilisation – Avenir Lointain</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #07050f;
+    --surface:   rgba(18, 12, 40, 0.50);
+    --surface2:  rgba(255,255,255,0.07);
+    --border:    rgba(168, 85, 247, 0.28);
+    --border2:   rgba(255,255,255,0.10);
+    --accent:    #7c3aed;
+    --accent2:   #a855f7;
+    --accent3:   #3b82f6;
+    --text:      #e2e8f0;
+    --muted:     #6b7280;
+    --radius:    16px;
+    --transition: 220ms cubic-bezier(.4,0,.2,1);
+    --footer-h:  3rem;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(rgba(168,85,247,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px),
+      radial-gradient(ellipse 80% 55% at 18% 38%, rgba(124,58,237,.18) 0%, transparent 55%),
+      radial-gradient(ellipse 65% 45% at 82% 65%, rgba(59,130,246,.13) 0%, transparent 55%);
+    background-size: 44px 44px, 44px 44px, auto, auto;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(110px);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+  }
+  .blob-1 { width: 520px; height: 520px; background: rgba(124,58,237,.18); top: -160px; left: -180px; }
+  .blob-2 { width: 380px; height: 380px; background: rgba(168,85,247,.13); bottom: -100px; right: -120px; }
+
+  /* ── Header ── */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    padding: .85rem 1.5rem;
+    background: rgba(10,7,20,.6);
+    backdrop-filter: blur(28px) saturate(1.8);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    gap: 1rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .brand-logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 18px rgba(168,85,247,.5);
+  }
+
+  .brand-info h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.2px; line-height: 1.2; }
+  .brand-info p  { font-size: .72rem; color: var(--muted); margin-top: 1px; }
+
+  /* ── Main ── */
+  .main-content {
+    flex: 1;
+    padding: 3rem 1rem 4rem;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .prose {
+    width: 100%;
+    max-width: 780px;
+    background: var(--surface);
+    backdrop-filter: blur(25px) saturate(2);
+    -webkit-backdrop-filter: blur(25px) saturate(2);
+    border: 1px solid rgba(168,85,247,.30);
+    border-radius: 24px;
+    padding: 2.5rem 2.25rem;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.07) inset,
+      0 8px 32px rgba(168,85,247,.14) inset,
+      0 28px 80px rgba(0,0,0,.65),
+      0 0 80px rgba(124,58,237,.18),
+      0 0 40px rgba(59,130,246,.08);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .prose::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168,85,247,.6), rgba(124,58,237,.5), transparent);
+    border-radius: 24px 24px 0 0;
+  }
+
+  .prose-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    background: rgba(168,85,247,.12);
+    border: 1px solid rgba(168,85,247,.25);
+    border-radius: 999px;
+    padding: .25rem .75rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .prose h2 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -.4px;
+    line-height: 1.25;
+    margin-bottom: .4rem;
+    background: linear-gradient(135deg, #fff 30%, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .prose-meta {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .prose h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-top: 2rem;
+    margin-bottom: .6rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .prose h3::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 1em;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .prose p {
+    font-size: .93rem;
+    line-height: 1.7;
+    color: rgba(226,232,240,.85);
+    margin-bottom: .9rem;
+  }
+
+  .prose ul {
+    list-style: none;
+    margin-bottom: .9rem;
+    padding-left: .25rem;
+  }
+
+  .prose ul li {
+    font-size: .93rem;
+    line-height: 1.7;
+    color: rgba(226,232,240,.85);
+    padding-left: 1.4rem;
+    position: relative;
+    margin-bottom: .35rem;
+  }
+
+  .prose ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent2);
+    font-size: .8rem;
+  }
+
+  .prose a {
+    color: var(--accent2);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(168,85,247,.3);
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .prose a:hover { color: #fff; border-bottom-color: var(--accent2); }
+
+  .info-box {
+    background: rgba(59,130,246,.08);
+    border: 1px solid rgba(59,130,246,.22);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: .88rem;
+    color: rgba(226,232,240,.8);
+    line-height: 1.65;
+  }
+
+  /* ── Footer ── */
+  .site-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    height: var(--footer-h);
+    padding: 0 1.5rem;
+    border-top: 1px solid var(--border2);
+    background: rgba(7,10,15,.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .site-footer a { color: var(--muted); text-decoration: none; transition: color var(--transition); }
+  .site-footer a:hover { color: var(--accent2); }
+  .footer-dot { opacity: .3; }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<!-- Header -->
+<header class="site-header">
+  <a href="/" class="brand">
+    <div class="brand-logo">🎙️</div>
+    <div class="brand-info">
+      <h1>Avenir Lointain</h1>
+      <p>Chat vocal de proximité</p>
+    </div>
+  </a>
+</header>
+
+<!-- Main -->
+<main class="main-content">
+  <article class="prose">
+
+    <div class="prose-badge">📄 Légal</div>
+    <h2>Conditions d'utilisation</h2>
+    <p class="prose-meta">Dernière mise à jour : 27 février 2026</p>
+
+    <div class="info-box">
+      En utilisant le système de chat vocal <strong>Avenir Lointain</strong> intégré à Roblox,
+      vous acceptez les présentes conditions. Si vous n'acceptez pas ces conditions, veuillez
+      ne pas utiliser le service.
+    </div>
+
+    <h3>1. Description du service</h3>
+    <p>
+      Avenir Lointain propose un système de <strong>chat vocal de proximité</strong> conçu pour être
+      utilisé dans les expériences Roblox. Le service permet aux joueurs de communiquer vocalement
+      en temps réel selon leur distance en jeu, en utilisant la technologie LiveKit pour le
+      transport audio et l'API Open Cloud de Roblox pour l'authentification des utilisateurs.
+    </p>
+
+    <h3>2. Conditions d'accès</h3>
+    <p>Pour utiliser ce service, vous devez :</p>
+    <ul>
+      <li>Posséder un compte Roblox actif et en règle.</li>
+      <li>Être présent dans une expérience Roblox intégrant le système Avenir Lointain.</li>
+      <li>Disposer d'un microphone fonctionnel et accorder les autorisations nécessaires à votre navigateur.</li>
+      <li>Respecter les Conditions d'utilisation de Roblox (<a href="https://en.help.roblox.com/hc/en-us/articles/115004647846" target="_blank" rel="noopener noreferrer">Roblox ToS</a>).</li>
+    </ul>
+
+    <h3>3. Utilisation acceptable</h3>
+    <p>En utilisant le chat vocal, vous vous engagez à :</p>
+    <ul>
+      <li>Ne pas tenir de propos haineux, discriminatoires, harcelants ou menaçants.</li>
+      <li>Ne pas diffuser de contenus pour adultes ou explicites.</li>
+      <li>Ne pas tenter de contourner le système de vérification d'identité Roblox.</li>
+      <li>Ne pas perturber délibérément l'expérience des autres joueurs (spam audio, bruit excessif, etc.).</li>
+      <li>Ne pas utiliser le service à des fins commerciales non autorisées.</li>
+      <li>Respecter la vie privée des autres utilisateurs et ne pas les enregistrer sans leur consentement.</li>
+    </ul>
+
+    <h3>4. Authentification et identité</h3>
+    <p>
+      Le service utilise votre identifiant Roblox (<strong>userId</strong>) pour vous authentifier
+      via l'API Open Cloud de Roblox. Aucun mot de passe ni donnée d'identification Roblox ne
+      nous est transmis directement — la vérification est effectuée auprès des serveurs officiels
+      Roblox. Un jeton d'accès LiveKit temporaire est généré pour chaque session.
+    </p>
+
+    <h3>5. Disponibilité du service</h3>
+    <p>
+      Nous nous efforçons de maintenir le service disponible en permanence, mais nous ne garantissons
+      pas une disponibilité ininterrompue. Des interruptions peuvent survenir pour des raisons de
+      maintenance, de mise à jour ou de défaillance technique. Nous ne sommes pas responsables des
+      conséquences liées à une indisponibilité du service.
+    </p>
+
+    <h3>6. Propriété intellectuelle</h3>
+    <p>
+      Le code source, le design et le contenu d'Avenir Lointain sont protégés par les lois relatives
+      à la propriété intellectuelle. Toute reproduction, distribution ou modification non autorisée
+      est interdite. Les marques et logos de Roblox sont la propriété exclusive de Roblox Corporation.
+    </p>
+
+    <h3>7. Limitation de responsabilité</h3>
+    <p>
+      Le service est fourni « en l'état », sans garantie d'aucune sorte. Nous ne sommes pas
+      responsables des dommages directs ou indirects liés à l'utilisation ou à l'impossibilité
+      d'utiliser le service, y compris la perte de données, les interruptions de jeu ou les
+      préjudices liés à des échanges entre utilisateurs.
+    </p>
+
+    <h3>8. Sanctions et résiliation</h3>
+    <p>
+      Tout manquement aux présentes conditions peut entraîner la suspension ou le blocage de
+      votre accès au service, sans préavis ni remboursement. Les infractions graves pourront
+      être signalées aux équipes de modération de Roblox.
+    </p>
+
+    <h3>9. Modifications des conditions</h3>
+    <p>
+      Nous nous réservons le droit de modifier ces conditions à tout moment. La date de dernière
+      mise à jour sera actualisée en haut de cette page. En continuant à utiliser le service après
+      modification, vous acceptez les nouvelles conditions.
+    </p>
+
+    <h3>10. Contact</h3>
+    <p>
+      Pour toute question concernant ces conditions, vous pouvez nous contacter via le serveur
+      Discord officiel du projet ou directement sur la page Roblox de l'expérience Avenir Lointain.
+    </p>
+
+  </article>
+</main>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <a href="/">Avenir Lointain</a>
+  <span class="footer-dot">•</span>
+  <a href="/terms-of-service.html">Conditions d'utilisation</a>
+  <span class="footer-dot">•</span>
+  <a href="/privacy-policy.html">Politique de confidentialité</a>
+</footer>
+
+</body>
+</html>
