@@ -122,6 +122,8 @@ io.on("connection", (socket) => {
     connectedUsers.add(userId)
     userSockets.set(String(userId), socket)
     broadcastConnectedCount()
+    // 🔥 Forcer mute par défaut au join pour éviter tout leak audio avant le premier sync Roblox
+    socket.emit("muteState", { muted: true })
   } else {
     // Send current count to newly connected page-load sockets (no userId = counter-only)
     socket.emit("connectedCount", connectedUsers.size)
@@ -156,35 +158,6 @@ app.post("/speaking", (req, res) => {
   res.json({ success: true })
 })
 
-// 📊 Volume proximity
-app.get("/volumes/:userId", (req, res) => {
-  const me = positions[req.params.userId]
-  if (!me) return res.json({})
-
-  let volumes = {}
-
-  for (let id in positions) {
-    if (id === req.params.userId) continue
-    const other = positions[id]
-
-    const dx = me.x - other.x
-    const dy = me.y - other.y
-    const dz = me.z - other.z
-
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
-    const maxDist = DISTANCES[me.mode] || 25
-
-    let volume = 0
-    if (dist <= maxDist) {
-      volume = 1 - dist / maxDist
-    }
-
-    volumes[id] = volume
-  }
-
-  res.json(volumes)
-})
-
 // 🔊 Get speaking state
 app.get("/speaking/:userId", (req, res) => {
   res.json({
@@ -197,25 +170,47 @@ app.get("/speaking/:userId", (req, res) => {
 app.get("/state-all", (req, res) => {
   const players = {}
 
-  for (let id in positions) {
+  // 🔥 Initialiser tous les joueurs connus (même sans position)
+  const allUserIds = new Set([
+    ...Object.keys(positions),
+    ...Object.keys(speakingStates)
+  ])
+
+  for (let id of allUserIds) {
     players[id] = {
       speaking: speakingStates[id] || false,
       volumes: {},
-      position: positions[id]
+      position: positions[id] || null
     }
   }
 
-  for (let id in positions) {
-    const me = positions[id]
+  for (let listenerId of allUserIds) {
+    const me = positions[listenerId]
 
-    for (let otherId in positions) {
-      if (id === otherId) continue
+    // 🔥 Si le listener n'a pas encore de position → tout volume = 0
+    if (!me) {
+      for (let otherId of allUserIds) {
+        if (otherId !== listenerId) {
+          players[listenerId].volumes[otherId] = 0
+        }
+      }
+      continue
+    }
 
-      const other = positions[otherId]
+    for (let speakerId of allUserIds) {
+      if (listenerId === speakerId) continue
 
-      // Muted or silent speakers contribute 0 volume
-      if (!speakingStates[otherId] || other.mode === "Mute") {
-        players[id].volumes[otherId] = 0
+      const other = positions[speakerId]
+
+      // 🔥 Si speaker n'a pas encore de position → volume 0
+      if (!other) {
+        players[listenerId].volumes[speakerId] = 0
+        continue
+      }
+
+      // 🔥 Si ne parle pas ou mute
+      if (!speakingStates[speakerId] || other.mode === "Mute") {
+        players[listenerId].volumes[speakerId] = 0
         continue
       }
 
@@ -228,7 +223,7 @@ app.get("/state-all", (req, res) => {
       const maxDistSq = maxDist * maxDist
 
       if (distSq > maxDistSq) {
-        players[id].volumes[otherId] = 0
+        players[listenerId].volumes[speakerId] = 0
         continue
       }
 
@@ -236,49 +231,11 @@ app.get("/state-all", (req, res) => {
       // Quadratic natural falloff curve
       const volume = Math.pow(1 - dist / maxDist, 2)
 
-      players[id].volumes[otherId] = volume
+      players[listenerId].volumes[speakerId] = volume
     }
   }
 
   res.json({ players })
-})
-
-// 📦 Combined state endpoint (speaking + volumes) — reduces Roblox HTTP request count
-// Supports ~4 players at 1 req/s each (≈480 req/min) within Roblox's 500 req/min HttpService limit.
-app.get("/state/:userId", (req, res) => {
-  const userId = req.params.userId
-  if (!userId || !/^\d+$/.test(userId)) {
-    return res.status(400).json({ error: "Invalid userId" })
-  }
-
-  const me = positions[userId]
-  let volumes = {}
-
-  if (me) {
-    for (let id in positions) {
-      if (id === userId) continue
-      const other = positions[id]
-
-      const dx = me.x - other.x
-      const dy = me.y - other.y
-      const dz = me.z - other.z
-
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
-      const maxDist = DISTANCES[me.mode] || 25
-
-      let volume = 0
-      if (dist <= maxDist) {
-        volume = 1 - dist / maxDist
-      }
-
-      volumes[id] = volume
-    }
-  }
-
-  res.json({
-    speaking: speakingStates[userId] || false,
-    volumes
-  })
 })
 
 const port = process.env.PORT || 3000

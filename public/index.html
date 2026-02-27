@@ -1177,6 +1177,14 @@ async function join() {
       }
     })
 
+    // 🔥 Silence already-published tracks for participants who connect with tracks already active
+    // (TrackSubscribed handles tracks published after connection)
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+      participant.audioTrackPublications.forEach(pub => {
+        if (pub.audioTrack) pub.audioTrack.setVolume(0)
+      })
+    })
+
     console.log('[VoiceSystem] Connecting to LiveKit room...')
     await room.connect(data.url, data.token)
     console.log('[VoiceSystem] Connected to LiveKit room')
