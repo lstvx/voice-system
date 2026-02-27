@@ -39,27 +39,6 @@ const DISTANCES = {
 }
 
 // 🔐 Vérification Roblox via Open Cloud
-// ──────────────────────────────────────────────────────────────────────────────
-// NOTE — Migration vers Roblox Auth v2 (OAuth2 / OpenID Connect) :
-//
-// Pour passer à l'OAuth2 Roblox vous aurez besoin de :
-//   1. Créer une application OAuth2 sur https://create.roblox.com/dashboard/credentials
-//      → obtenir un CLIENT_ID et un CLIENT_SECRET.
-//   2. Définir une redirect_uri dans votre app (ex. https://votre-domaine.com/auth/callback).
-//   3. Ajouter les env vars : ROBLOX_CLIENT_ID, ROBLOX_CLIENT_SECRET, ROBLOX_REDIRECT_URI.
-//   4. Remplacer le flow actuel par :
-//      a. GET /auth/login  → redirige vers https://apis.roblox.com/oauth/v1/authorize
-//         avec les params : client_id, redirect_uri, scope (openid profile), response_type=code.
-//      b. GET /auth/callback?code=... → échange le code contre un access_token + id_token
-//         via POST https://apis.roblox.com/oauth/v1/token (client_credentials en Basic Auth).
-//      c. Décoder l'id_token (JWT) pour obtenir le userId et le nom d'utilisateur Roblox
-//         sans appel supplémentaire à l'API Open Cloud.
-//      d. Générer le jeton LiveKit à partir des claims extraits de l'id_token.
-//   5. Gérer le refresh_token si vous souhaitez des sessions persistantes.
-//
-// Scopes utiles : openid (userId), profile (displayName, username).
-// Ref : https://create.roblox.com/docs/cloud/reference/oauth2
-// ──────────────────────────────────────────────────────────────────────────────
 async function verifyUser(userId) {
   try {
     const res = await axios.get(
@@ -108,6 +87,56 @@ app.post("/auth", authLimiter, async (req, res) => {
     url: process.env.LIVEKIT_URL,
     username: user.name || "RobloxUser"
   })
+})
+
+// 🔑 OAuth2 callback — Roblox redirects here after user authorization
+app.get("/oauth/callback", async (req, res) => {
+  const { code } = req.query
+  if (!code) return res.status(400).json({ error: "Missing authorization code" })
+
+  if (!process.env.ROBLOX_CLIENT_ID || !process.env.ROBLOX_CLIENT_SECRET || !process.env.ROBLOX_REDIRECT_URI) {
+    return res.status(500).json({ error: "OAuth environment variables not configured" })
+  }
+
+  try {
+    const params = new URLSearchParams()
+    params.append("grant_type", "authorization_code")
+    params.append("code", code)
+    params.append("redirect_uri", process.env.ROBLOX_REDIRECT_URI)
+
+    const tokenRes = await axios.post(
+      "https://apis.roblox.com/oauth/v1/token",
+      params,
+      {
+        auth: {
+          username: process.env.ROBLOX_CLIENT_ID,
+          password: process.env.ROBLOX_CLIENT_SECRET
+        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      }
+    )
+
+    const { id_token } = tokenRes.data
+
+    // Decode id_token payload — token is received directly from Roblox's HTTPS endpoint
+    const payload = JSON.parse(Buffer.from(id_token.split(".")[1], "base64url").toString())
+    const userId = payload.sub
+    const username = payload.preferred_username || payload.name || "RobloxUser"
+
+    const at = new AccessToken(
+      process.env.LIVEKIT_API_KEY,
+      process.env.LIVEKIT_SECRET,
+      { identity: userId, name: username }
+    )
+    at.addGrant({ roomJoin: true, room: "roblox-room", canPublish: true, canSubscribe: true })
+    const token = await at.toJwt()
+
+    res.json({ token, url: process.env.LIVEKIT_URL, userId, username })
+  } catch (err) {
+    const status = err.response?.status || 401
+    const detail = err.response?.data?.error_description || err.message || "Unknown error"
+    res.status(status).json({ error: "OAuth token exchange failed", detail })
+  }
 })
 
 // 📡 Position update

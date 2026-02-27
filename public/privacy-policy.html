@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Politique de confidentialité – Avenir Lointain</title>
+<title>Politique de confidentialité – AOT:Avenir Lointain</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -77,14 +77,19 @@
 
   .brand-logo {
     width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
     flex-shrink: 0;
     box-shadow: 0 0 18px rgba(168,85,247,.5);
+    overflow: hidden;
+  }
+
+  .brand-logo img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
   }
 
   .brand-info h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.2px; line-height: 1.2; }
@@ -294,9 +299,9 @@
 <!-- Header -->
 <header class="site-header">
   <a href="/" class="brand">
-    <div class="brand-logo">🎙️</div>
+    <div class="brand-logo"><img src="/Logo_AOT_AL.png" alt="AOT:Avenir Lointain"></div>
     <div class="brand-info">
-      <h1>Avenir Lointain</h1>
+      <h1>AOT:Avenir Lointain</h1>
       <p>Chat vocal de proximité</p>
     </div>
   </a>
@@ -312,74 +317,27 @@
 
     <div class="info-box">
       La protection de votre vie privée est une priorité. Cette politique explique quelles données
-      sont collectées lors de l'utilisation du chat vocal <strong>Avenir Lointain</strong>, comment
+      sont collectées lors de l'utilisation du chat vocal <strong>AOT:Avenir Lointain</strong>, comment
       elles sont utilisées et quels sont vos droits.
     </div>
 
     <h3>1. Responsable du traitement</h3>
     <p>
-      Le service Avenir Lointain est opéré par l'équipe de développement de l'expérience Roblox
+      Le service AOT:Avenir Lointain est opéré par l'équipe de développement de l'expérience Roblox
       du même nom. Pour toute question relative à vos données personnelles, vous pouvez nous
       contacter via le serveur Discord officiel ou directement sur la page Roblox du projet.
     </p>
 
     <h3>2. Données collectées</h3>
     <p>Lors de l'utilisation du service, les données suivantes sont traitées :</p>
-
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Donnée</th>
-          <th>Source</th>
-          <th>Finalité</th>
-          <th>Conservation</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>userId Roblox</strong></td>
-          <td>Roblox (jeu)</td>
-          <td>Authentification, génération du jeton audio</td>
-          <td>Durée de la session</td>
-        </tr>
-        <tr>
-          <td><strong>Nom d'utilisateur Roblox</strong></td>
-          <td>API Open Cloud Roblox</td>
-          <td>Affichage dans l'interface vocale</td>
-          <td>Durée de la session</td>
-        </tr>
-        <tr>
-          <td><strong>Position en jeu (x, y, z)</strong></td>
-          <td>Roblox (jeu)</td>
-          <td>Calcul du volume de proximité</td>
-          <td>En mémoire — effacée à la déconnexion</td>
-        </tr>
-        <tr>
-          <td><strong>Mode vocal</strong> (Talk / Whisper / Shout / Mute)</td>
-          <td>Roblox (jeu)</td>
-          <td>Réglage de la portée vocale</td>
-          <td>En mémoire — effacée à la déconnexion</td>
-        </tr>
-        <tr>
-          <td><strong>État de parole</strong> (speaking / muet)</td>
-          <td>Navigateur / microphone</td>
-          <td>Affichage en temps réel pour les autres joueurs</td>
-          <td>En mémoire — effacée à la déconnexion</td>
-        </tr>
-        <tr>
-          <td><strong>Flux audio</strong></td>
-          <td>Microphone du navigateur</td>
-          <td>Transmission audio en temps réel via LiveKit</td>
-          <td>Non stocké — transit uniquement</td>
-        </tr>
-        <tr>
-          <td><strong>Adresse IP</strong></td>
-          <td>Connexion réseau</td>
-          <td>Acheminement réseau, protection contre les abus</td>
-          <td>Journaux serveur — 7 jours maximum</td>
-        </tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><strong>userId et nom d'utilisateur Roblox</strong> — pour vous identifier dans la session vocale.</li>
+      <li><strong>Position en jeu</strong> — pour ajuster le volume selon la distance entre joueurs.</li>
+      <li><strong>Mode vocal et état de parole</strong> — pour afficher votre statut aux autres joueurs.</li>
+      <li><strong>Flux audio</strong> — transmis en temps réel, jamais stocké.</li>
+      <li><strong>Adresse IP</strong> — conservée dans les journaux serveur 7 jours maximum.</li>
+    </ul>
+    <p>Toutes les données de session sont en mémoire uniquement et supprimées dès votre déconnexion.</p>
 
     <h3>3. Données non collectées</h3>
     <p>Nous ne collectons <strong>pas</strong> :</p>
@@ -449,7 +407,7 @@
 
     <h3>9. Mineurs</h3>
     <p>
-      Roblox impose ses propres restrictions d'âge et contrôles parentaux. Avenir Lointain
+      Roblox impose ses propres restrictions d'âge et contrôles parentaux. AOT:Avenir Lointain
       respecte ces règles et ne collecte pas sciemment de données de mineurs de moins de 13 ans
       au-delà de ce que Roblox autorise via ses contrôles parentaux.
     </p>
@@ -464,7 +422,7 @@
     <h3>11. Contact</h3>
     <p>
       Pour toute question ou demande concernant vos données personnelles, contactez-nous via
-      le serveur Discord officiel d'Avenir Lointain ou directement sur la page Roblox de l'expérience.
+      le serveur Discord officiel d'AOT:Avenir Lointain ou directement sur la page Roblox de l'expérience.
     </p>
 
   </article>
@@ -472,7 +430,7 @@
 
 <!-- Footer -->
 <footer class="site-footer">
-  <a href="/">Avenir Lointain</a>
+  <a href="/">AOT:Avenir Lointain</a>
   <span class="footer-dot">•</span>
   <a href="/terms-of-service.html">Conditions d'utilisation</a>
   <span class="footer-dot">•</span>
