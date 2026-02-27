@@ -29,7 +29,7 @@ local SpatialUpdated  = Instance.new("RemoteEvent")
 SpatialUpdated.Name   = "SpatialUpdated"
 SpatialUpdated.Parent = VoiceSystemEvents
 
-print("[VoiceSystem] ServerScript loaded | RAILWAY:", RAILWAY)
+print("[VoiceSystem] ServerScript valide | SITE WEB :", RAILWAY)
 
 -- Receive position (with LookVector direction) from LocalScript and forward to backend
 UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
@@ -64,7 +64,7 @@ local function isOccluded(posA, posB)
 	end
 
 	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 	local result = workspace:Raycast(posA, direction, rayParams)
 
