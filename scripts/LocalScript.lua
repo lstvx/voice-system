@@ -8,8 +8,6 @@ local player = Players.LocalPlayer
 local VoiceSystemEvents = ReplicatedStorage:WaitForChild("VoiceSystemEvents")
 local UpdatePosition    = VoiceSystemEvents:WaitForChild("UpdatePosition")
 local SpeakingUpdated   = VoiceSystemEvents:WaitForChild("SpeakingUpdated")
-local VolumesUpdated    = VoiceSystemEvents:WaitForChild("VolumesUpdated")
-local SpatialUpdated    = VoiceSystemEvents:WaitForChild("SpatialUpdated")
 
 --========================
 -- UI REFERENCES
@@ -167,16 +165,6 @@ local speaking = false
 
 SpeakingUpdated.OnClientEvent:Connect(function(isSpeaking)
 	speaking = isSpeaking
-end)
-
-VolumesUpdated.OnClientEvent:Connect(function(Volumes)
-	-- Volumes is a table like { [userid] = volume, ... }
-end)
-
--- Receive spatial position data from the server (forwarded by ServerScript)
-SpatialUpdated.OnClientEvent:Connect(function(position)
-	-- position contains {x, y, z, lx, ly, lz} of the local player as known by the server
-	-- Spatial audio rendering is handled by the LiveKit web client using this data
 end)
 
 task.spawn(function()
