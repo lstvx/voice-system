@@ -1190,9 +1190,12 @@ async function join() {
       panner.coneInnerAngle = SPATIAL_CONE_INNER
       panner.coneOuterAngle = SPATIAL_CONE_OUTER
       panner.coneOuterGain = SPATIAL_CONE_GAIN
-      // Inject PannerNode into livekit's Web Audio chain, then attach to start playback
+      // Inject PannerNode into livekit's Web Audio chain.
+      // Do NOT call track.attach() here: with webAudioMix enabled the Room already
+      // routes audio through remoteAudioCtx.  A separate attach() would create a
+      // raw HTMLAudioElement that plays at full volume, bypassing the PannerNode
+      // and making every participant audible regardless of in-game distance.
       track.setWebAudioPlugins([panner])
-      track.attach()
       pannerNodes.set(participant.identity, panner)
       console.log('[VoiceSystem] Spatial audio configured for', participant.identity)
     })
@@ -1401,7 +1404,18 @@ function startSpatialSync(userId) {
       room.remoteParticipants.forEach(participant => {
         const id = String(participant.identity)
         const pdata = data.players[id]
-        if (!pdata || !pdata.position) return
+        if (!pdata || !pdata.position) {
+          // No position data yet (e.g. late joiner whose first Roblox tick hasn't
+          // reached the server).  Mute now so they are silent until their real
+          // position arrives, rather than playing from the default (0,0,0) origin.
+          if (lastMuted[id] !== true) {
+            participant.audioTrackPublications.forEach(pub => {
+              if (pub.audioTrack) pub.audioTrack.setVolume(0)
+            })
+            lastMuted[id] = true
+          }
+          return
+        }
 
         const pos = pdata.position
         const mode = pos.mode
