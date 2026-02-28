@@ -903,6 +903,10 @@ let analyserNode = null
 let sourceNode = null
 let rawMicTrack = null
 
+// Spatial audio — remote tracks
+let remoteAudioCtx = null
+const pannerNodes = new Map() // participantIdentity → PannerNode
+
 // UI state
 let isMuted = false
 let isDeafened = false
@@ -1159,7 +1163,14 @@ async function join() {
     gainNode.connect(dest)
     console.log('[VoiceSystem] Audio processing chain created')
 
-    room = new LivekitClient.Room({ audioCaptureDefaults: { channelCount: 2 } })
+    // Dedicated AudioContext for remote-track spatial audio (PannerNode graph)
+    remoteAudioCtx = new AudioContext()
+
+    room = new LivekitClient.Room({
+      audioCaptureDefaults: { channelCount: 2 },
+      // Supply our own AudioContext so the Room routes remote audio through it
+      webAudioMix: { audioContext: remoteAudioCtx }
+    })
     console.log('[VoiceSystem] LiveKit Room created')
 
     room.on(LivekitClient.RoomEvent.Disconnected, () => {
@@ -1170,37 +1181,26 @@ async function join() {
     // Configure spatial audio for every newly subscribed remote audio track
     room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
       if (track.kind !== LivekitClient.Track.Kind.Audio) return
-      track.setSpatialAudio(true)
-      track.setDistanceModel('inverse')
-      track.setRefDistance(REF_DIST_TALK)
-      track.setMaxDistance(SPATIAL_MAX_DIST)
-      track.setRolloffFactor(SPATIAL_ROLLOFF)
-      track.setConeInnerAngle(SPATIAL_CONE_INNER)
-      track.setConeOuterAngle(SPATIAL_CONE_OUTER)
-      track.setConeOuterGain(SPATIAL_CONE_GAIN)
+      const panner = remoteAudioCtx.createPanner()
+      panner.panningModel = 'HRTF'
+      panner.distanceModel = 'inverse'
+      panner.refDistance = REF_DIST_TALK
+      panner.maxDistance = SPATIAL_MAX_DIST
+      panner.rolloffFactor = SPATIAL_ROLLOFF
+      panner.coneInnerAngle = SPATIAL_CONE_INNER
+      panner.coneOuterAngle = SPATIAL_CONE_OUTER
+      panner.coneOuterGain = SPATIAL_CONE_GAIN
+      // Inject PannerNode into livekit's Web Audio chain, then attach to start playback
+      track.setWebAudioPlugins([panner])
+      track.attach()
+      pannerNodes.set(participant.identity, panner)
       console.log('[VoiceSystem] Spatial audio configured for', participant.identity)
     })
 
     room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       if (track.kind !== LivekitClient.Track.Kind.Audio) return
+      pannerNodes.delete(participant.identity)
       console.log('[VoiceSystem] Track unsubscribed for', participant.identity)
-    })
-
-    // 🔥 Configure spatial audio for tracks already active when a participant connects
-    // (TrackSubscribed handles tracks published after connection)
-    room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
-      participant.audioTrackPublications.forEach(pub => {
-        const track = pub.audioTrack
-        if (!track) return
-        track.setSpatialAudio(true)
-        track.setDistanceModel('inverse')
-        track.setRefDistance(REF_DIST_TALK)
-        track.setMaxDistance(SPATIAL_MAX_DIST)
-        track.setRolloffFactor(SPATIAL_ROLLOFF)
-        track.setConeInnerAngle(SPATIAL_CONE_INNER)
-        track.setConeOuterAngle(SPATIAL_CONE_OUTER)
-        track.setConeOuterGain(SPATIAL_CONE_GAIN)
-      })
     })
 
     console.log('[VoiceSystem] Connecting to LiveKit room...')
@@ -1216,6 +1216,8 @@ async function join() {
     setStatus('error', 'Connexion échouée')
     btn.disabled = false
     cleanupAudio()
+    pannerNodes.clear()
+    if (remoteAudioCtx) { remoteAudioCtx.close(); remoteAudioCtx = null }
     room = null; localTrack = null
     return
   }
@@ -1243,6 +1245,8 @@ async function leave() {
   if (volumeInterval) { clearInterval(volumeInterval); volumeInterval = null }
   if (socket) { socket.disconnect(); socket = null }
   cleanupAudio()
+  pannerNodes.clear()
+  if (remoteAudioCtx) { remoteAudioCtx.close(); remoteAudioCtx = null }
   if (localTrack) { localTrack.stop(); localTrack = null }
   if (room) { room.disconnect(); room = null }
 
@@ -1372,12 +1376,26 @@ function startSpatialSync(userId) {
       const data = await res.json()
       if (!data.players) return
 
-      // Update local participant position and orientation (audio listener)
+      // Update audio listener position and orientation from the local player's Roblox data
       const myData = data.players[userId]
-      if (myData && myData.position) {
+      if (myData && myData.position && remoteAudioCtx) {
         const p = myData.position
-        room.localParticipant.setPosition(p.x || 0, p.y || 0, p.z || 0)
-        room.localParticipant.setOrientation(p.lx || 0, p.ly || 0, p.lz || 0, 0, 1, 0)
+        const listener = remoteAudioCtx.listener
+        // Modern Web Audio API exposes position/orientation as AudioParams
+        if (listener.positionX) {
+          listener.positionX.value = p.x || 0
+          listener.positionY.value = p.y || 0
+          listener.positionZ.value = p.z || 0
+          listener.forwardX.value = p.lx || 0
+          listener.forwardY.value = p.ly || 0
+          listener.forwardZ.value = p.lz || 0
+          listener.upX.value = 0
+          listener.upY.value = 1
+          listener.upZ.value = 0
+        } else {
+          listener.setPosition(p.x || 0, p.y || 0, p.z || 0)
+          listener.setOrientation(p.lx || 0, p.ly || 0, p.lz || 0, 0, 1, 0)
+        }
       }
 
       room.remoteParticipants.forEach(participant => {
@@ -1387,19 +1405,31 @@ function startSpatialSync(userId) {
 
         const pos = pdata.position
         const mode = pos.mode
-        // Dynamic refDistance per mode (Option B)
+        // Dynamic refDistance per mode
         const refDist = mode === 'Whisper' ? REF_DIST_WHISPER : mode === 'Shout' ? REF_DIST_SHOUT : REF_DIST_TALK
         const shouldMute = isDeafened || mode === 'Mute'
+
+        const panner = pannerNodes.get(id)
 
         participant.audioTrackPublications.forEach(pub => {
           const track = pub.audioTrack
           if (!track) return
-          // Always update spatial position
-          track.setPosition(pos.x || 0, pos.y || 0, pos.z || 0)
-          // Update refDistance only when mode changes
-          if (lastModes[id] !== mode) {
-            track.setRefDistance(refDist)
+
+          // Always update spatial position via PannerNode
+          if (panner) {
+            if (panner.positionX) {
+              panner.positionX.value = pos.x || 0
+              panner.positionY.value = pos.y || 0
+              panner.positionZ.value = pos.z || 0
+            } else {
+              panner.setPosition(pos.x || 0, pos.y || 0, pos.z || 0)
+            }
+            // Update refDistance only when mode changes
+            if (lastModes[id] !== mode) {
+              panner.refDistance = refDist
+            }
           }
+
           // Apply volume only when mute state changes
           if (lastMuted[id] !== shouldMute) {
             track.setVolume(shouldMute ? 0 : 1)
