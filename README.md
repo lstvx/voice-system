@@ -28,6 +28,7 @@ LIVEKIT_SECRET=your_livekit_secret
 LIVEKIT_URL=wss://your-project.livekit.cloud
 ROBLOX_CLIENT_ID=your_roblox_oauth_client_id
 ROBLOX_CLIENT_SECRET=your_roblox_oauth_client_secret
+ROBLOX_REDIRECT_URI=https://credent.up.railway.app/oauth/callback
 PORT=3000
 ```
 
