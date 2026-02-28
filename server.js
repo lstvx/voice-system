@@ -37,9 +37,7 @@ const DISTANCES = {
   Talk: 25,
   Shout: 60
 }
-console.log("CLIENT ID:", process.env.ROBLOX_CLIENT_ID)
-console.log("ALL ENV KEYS:", Object.keys(process.env))
-const ROBLOX_REDIRECT_URI = "https://credent.up.railway.app/oauth/callback"
+const ROBLOX_REDIRECT_URI = process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
 
 // 🔑 OAuth2 login — redirect user to Roblox authorization page
 app.get("/login", loginLimiter, (req, res) => {
@@ -48,7 +46,7 @@ app.get("/login", loginLimiter, (req, res) => {
   }
   const redirectUri = encodeURIComponent(ROBLOX_REDIRECT_URI)
   const url =
-    "https://apis.roblox.com/oauth/v1/authorize?" +
+    "https://authorize.roblox.com/?" +
     `client_id=${process.env.ROBLOX_CLIENT_ID}` +
     "&response_type=code" +
     `&redirect_uri=${redirectUri}` +
