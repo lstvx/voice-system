@@ -1148,12 +1148,11 @@ async function join() {
       if (connected) leave()
     })
 
-    // Mute and enable 3D spatial audio for every newly subscribed remote audio track
+    // Mute every newly subscribed remote audio track until volume sync kicks in
     room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
       if (track.kind !== LivekitClient.Track.Kind.Audio) return
       track.setVolume(0)
-      track.setSpatialAudio(true)
-      console.log('[VoiceSystem] Spatial audio set up for', participant.identity)
+      console.log('[VoiceSystem] Remote audio track subscribed for', participant.identity)
     })
 
     room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
@@ -1355,11 +1354,6 @@ function startVolumeSync(userId) {
           if (!pub.audioTrack) return
           // Always apply volume — never skip even when vol === 0
           pub.audioTrack.setVolume(vol)
-          // Apply 3D spatial position from server data
-          const otherPos = data.players[id] && data.players[id].position
-          if (otherPos && typeof pub.audioTrack.setPosition === 'function') {
-            pub.audioTrack.setPosition(otherPos.x || 0, otherPos.y || 0, otherPos.z || 0)
-          }
         })
 
         if (lastVolumes[id] !== vol) {
