@@ -32,11 +32,6 @@ let speakingStates = {}
 // Map userId (string) → socket for mute sync
 const userSockets = new Map()
 
-const DISTANCES = {
-  Whisper: 10,
-  Talk: 25,
-  Shout: 60
-}
 const ROBLOX_REDIRECT_URI = process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
 
 // 🔑 OAuth2 login — redirect user to Roblox authorization page
@@ -181,12 +176,11 @@ app.get("/speaking/:userId", (req, res) => {
   })
 })
 
-// 📦 State-all endpoint — single poll for all players (scalable for 70–120 players)
-// Returns speaking state, per-listener volumes (speaker-based mode, quadratic curve), and positions.
+// 📦 State-all endpoint — positions, modes, and speaking states for all players.
+// Volume attenuation is handled entirely by the browser's spatial audio engine.
 app.get("/state-all", (req, res) => {
   const players = {}
 
-  // 🔥 Initialiser tous les joueurs connus (même sans position)
   const allUserIds = new Set([
     ...Object.keys(positions),
     ...Object.keys(speakingStates)
@@ -195,59 +189,7 @@ app.get("/state-all", (req, res) => {
   for (let id of allUserIds) {
     players[id] = {
       speaking: speakingStates[id] || false,
-      volumes: {},
       position: positions[id] || null
-    }
-  }
-
-  for (let listenerId of allUserIds) {
-    const me = positions[listenerId]
-
-    // 🔥 Si le listener n'a pas encore de position → tout volume = 0
-    if (!me) {
-      for (let otherId of allUserIds) {
-        if (otherId !== listenerId) {
-          players[listenerId].volumes[otherId] = 0
-        }
-      }
-      continue
-    }
-
-    for (let speakerId of allUserIds) {
-      if (listenerId === speakerId) continue
-
-      const other = positions[speakerId]
-
-      // 🔥 Si speaker n'a pas encore de position → volume 0
-      if (!other) {
-        players[listenerId].volumes[speakerId] = 0
-        continue
-      }
-
-      // 🔥 Si ne parle pas ou mute
-      if (!speakingStates[speakerId] || other.mode === "Mute") {
-        players[listenerId].volumes[speakerId] = 0
-        continue
-      }
-
-      const dx = me.x - other.x
-      const dy = me.y - other.y
-      const dz = me.z - other.z
-
-      const distSq = dx * dx + dy * dy + dz * dz
-      const maxDist = DISTANCES[other.mode] || 25
-      const maxDistSq = maxDist * maxDist
-
-      if (distSq > maxDistSq) {
-        players[listenerId].volumes[speakerId] = 0
-        continue
-      }
-
-      const dist = Math.sqrt(distSq)
-      // Quadratic natural falloff curve
-      const volume = Math.pow(1 - dist / maxDist, 2)
-
-      players[listenerId].volumes[speakerId] = volume
     }
   }
 
