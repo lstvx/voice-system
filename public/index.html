@@ -903,9 +903,6 @@ let analyserNode = null
 let sourceNode = null
 let rawMicTrack = null
 
-// Spatial audio — one PannerNode per remote participant
-let remotePanners = new Map() // identity → { panner, source, gain, audioEl }
-
 // UI state
 let isMuted = false
 let isDeafened = false
@@ -1151,38 +1148,17 @@ async function join() {
       if (connected) leave()
     })
 
-    // Set up spatial audio for remote participants
+    // Mute and enable 3D spatial audio for every newly subscribed remote audio track
     room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      if (track.kind !== LivekitClient.Track.Kind.Audio || !audioCtx) return
-      const audioEl = track.attach()
-      audioEl.style.display = 'none'
-      document.body.appendChild(audioEl)
-      const source = audioCtx.createMediaElementSource(audioEl)
-      const panner = audioCtx.createPanner()
-      panner.panningModel = 'HRTF'
-      panner.distanceModel = 'linear'
-      panner.refDistance = 1
-      panner.maxDistance = 120
-      panner.rolloffFactor = 1
-      panner.coneInnerAngle = 360
-      panner.coneOuterAngle = 360
-      const gain = audioCtx.createGain()
-      gain.gain.value = 0
-      source.connect(panner)
-      panner.connect(gain)
-      gain.connect(audioCtx.destination)
-      remotePanners.set(participant.identity, { panner, source, gain, audioEl })
+      if (track.kind !== LivekitClient.Track.Kind.Audio) return
+      track.setVolume(0)
+      track.setSpatialAudio(true)
       console.log('[VoiceSystem] Spatial audio set up for', participant.identity)
     })
 
     room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       if (track.kind !== LivekitClient.Track.Kind.Audio) return
-      const pd = remotePanners.get(participant.identity)
-      if (pd) {
-        try { pd.source.disconnect(); pd.panner.disconnect(); pd.gain.disconnect() } catch(e) { console.warn('[VoiceSystem] Error disconnecting audio nodes:', e) }
-        if (pd.audioEl && pd.audioEl.parentNode) pd.audioEl.parentNode.removeChild(pd.audioEl)
-        remotePanners.delete(participant.identity)
-      }
+      console.log('[VoiceSystem] Track unsubscribed for', participant.identity)
     })
 
     // 🔥 Silence already-published tracks for participants who connect with tracks already active
@@ -1235,13 +1211,6 @@ async function leave() {
   cleanupAudio()
   if (localTrack) { localTrack.stop(); localTrack = null }
   if (room) { room.disconnect(); room = null }
-
-  // Clean up spatial audio nodes
-  remotePanners.forEach((pd) => {
-    try { pd.source.disconnect(); pd.panner.disconnect(); pd.gain.disconnect() } catch(e) { console.warn('[VoiceSystem] Error disconnecting audio nodes:', e) }
-    if (pd.audioEl && pd.audioEl.parentNode) pd.audioEl.parentNode.removeChild(pd.audioEl)
-  })
-  remotePanners.clear()
 
   isMuted = false
   isDeafened = false
@@ -1371,25 +1340,6 @@ function startVolumeSync(userId) {
       const myData = data.players[userId]
       const volumes = myData ? (myData.volumes || {}) : {}
 
-      // Update AudioListener position/orientation for spatial audio
-      if (myData && myData.position && audioCtx) {
-        const pos = myData.position
-        const listener = audioCtx.listener
-        if (listener.positionX) {
-          listener.positionX.value = pos.x || 0
-          listener.positionY.value = pos.y || 0
-          listener.positionZ.value = pos.z || 0
-          if (pos.lx !== undefined) {
-            listener.forwardX.value = pos.lx
-            listener.forwardY.value = pos.ly
-            listener.forwardZ.value = pos.lz
-            listener.upX.value = 0
-            listener.upY.value = 1
-            listener.upZ.value = 0
-          }
-        }
-      }
-
       const keys = Object.keys(volumes)
       if (keys.length > 0 && JSON.stringify(volumes) !== JSON.stringify(lastVolumes._prev)) {
         console.log('[VoiceSystem] Volumes updated | participants:', keys.length, '| volumes:', JSON.stringify(volumes))
@@ -1397,34 +1347,24 @@ function startVolumeSync(userId) {
       }
 
       room.remoteParticipants.forEach(p => {
-        const rawVol = volumes[p.identity] || 0
+        const id = String(p.identity)
+        const rawVol = volumes[id] ?? 0
         const vol = isDeafened ? 0 : rawVol
 
-        const pd = remotePanners.get(p.identity)
-        if (pd) {
-          // Update 3D panner position from server data
-          const otherPos = data.players[p.identity] && data.players[p.identity].position
-          if (otherPos) {
-            pd.panner.positionX.value = otherPos.x || 0
-            pd.panner.positionY.value = otherPos.y || 0
-            pd.panner.positionZ.value = otherPos.z || 0
+        p.audioTrackPublications.forEach(pub => {
+          if (!pub.audioTrack) return
+          // Always apply volume — never skip even when vol === 0
+          pub.audioTrack.setVolume(vol)
+          // Apply 3D spatial position from server data
+          const otherPos = data.players[id] && data.players[id].position
+          if (otherPos && typeof pub.audioTrack.setPosition === 'function') {
+            pub.audioTrack.setPosition(otherPos.x || 0, otherPos.y || 0, otherPos.z || 0)
           }
-          pd.gain.gain.value = vol
-          if (lastVolumes[p.identity] !== vol) {
-            console.log('[VoiceSystem] Volume changed for', p.identity, '->', vol)
-            lastVolumes[p.identity] = vol
-          }
-        } else {
-          // Fallback for participants without a spatial audio node yet
-          p.audioTrackPublications.forEach(pub => {
-            if (pub.audioTrack) {
-              if (lastVolumes[p.identity] !== vol) {
-                console.log('[VoiceSystem] Volume changed for', p.identity, '->', vol)
-                lastVolumes[p.identity] = vol
-              }
-              pub.audioTrack.setVolume(vol)
-            }
-          })
+        })
+
+        if (lastVolumes[id] !== vol) {
+          console.log('[VoiceSystem] Volume changed for', id, '->', vol)
+          lastVolumes[id] = vol
         }
       })
     } catch (e) {
