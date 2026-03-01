@@ -1151,6 +1151,7 @@ async function join() {
     rawMicTrack = stream.getAudioTracks()[0]
 
     audioCtx = new AudioContext()
+    await audioCtx.resume()
     sourceNode = audioCtx.createMediaStreamSource(stream)
     gainNode = audioCtx.createGain()
     gainNode.gain.value = micGain
@@ -1165,6 +1166,7 @@ async function join() {
 
     // Dedicated AudioContext for remote-track spatial audio (PannerNode graph)
     remoteAudioCtx = new AudioContext()
+    await remoteAudioCtx.resume()
 
     room = new LivekitClient.Room({
       audioCaptureDefaults: { channelCount: 2 },
