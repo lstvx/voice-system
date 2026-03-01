@@ -939,24 +939,24 @@ console.log('[VoiceSystem] index.html loaded')
   })
 })()
 
-// Retrieve LiveKit credentials from the HttpOnly-cookie session set by /oauth/callback.
-// The token never appears in the URL or browser history.
-;(async function initOAuthSession() {
-  try {
-    const resp = await fetch('/auth/session')
-    if (!resp.ok) return
-    const data = await resp.json()
-    if (!data.token || !data.userId) return
-    oauthToken = data.token
-    oauthUserId = data.userId
-    oauthUsername = data.username || 'RobloxUser'
-    livekitUrl = data.livekitUrl
+// Read token + userId from URL params set by /oauth/callback, then clean the URL.
+// The URL is immediately replaced via history.replaceState to remove tokens from browser history.
+;(function initOAuthSession() {
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
+  const userId = params.get('userId')
+  const username = params.get('username')
+  const url = params.get('livekitUrl')
+  if (token && userId) {
+    oauthToken = token
+    oauthUserId = userId
+    oauthUsername = username || 'RobloxUser'
+    livekitUrl = url
     document.getElementById('joinBtn').textContent = 'Rejoindre la voix'
     const usernameEl = document.getElementById('robloxUsername')
     usernameEl.textContent = '👤 ' + oauthUsername
     usernameEl.style.display = 'block'
-  } catch (e) {
-    console.warn('[VoiceSystem] /auth/session fetch failed:', e)
+    history.replaceState({}, '', '/')
   }
 })()
 
@@ -1060,12 +1060,7 @@ async function switchDevice(deviceId) {
 function toggleMute() {
   if (!connected) return
   isMuted = !isMuted
-  setMuteState(isMuted)
-}
-
-function setMuteState(muted) {
-  isMuted = muted
-  if (gainNode) gainNode.gain.value = isMuted ? 0 : micGain
+  gainNode.gain.value = isMuted ? 0 : micGain
 
   const btn = document.getElementById('muteBtn')
   btn.classList.toggle('active', isMuted)
@@ -1087,7 +1082,7 @@ function setMuteState(muted) {
     document.getElementById('speakingBadge').classList.remove('active')
     document.getElementById('micIcon').classList.remove('speaking')
   }
-  console.log('[VoiceSystem] Mute state set to:', isMuted)
+  console.log('[VoiceSystem] Mute toggled:', isMuted)
 }
 
 function toggleDeafen() {
@@ -1169,8 +1164,9 @@ async function join() {
     gainNode.connect(dest)
     console.log('[VoiceSystem] Audio processing chain created')
 
-    // Reuse the same AudioContext for remote-track spatial audio (PannerNode graph)
-    remoteAudioCtx = audioCtx
+    // Dedicated AudioContext for remote-track spatial audio (PannerNode graph)
+    remoteAudioCtx = new AudioContext()
+    await remoteAudioCtx.resume()
 
     room = new LivekitClient.Room({
       audioCaptureDefaults: { channelCount: 2 },
@@ -1225,9 +1221,8 @@ async function join() {
     setStatus('error', 'Connexion échouée')
     btn.disabled = false
     cleanupAudio()
-    pannerNodes.forEach(p => p.disconnect())
     pannerNodes.clear()
-    remoteAudioCtx = null
+    if (remoteAudioCtx) { remoteAudioCtx.close(); remoteAudioCtx = null }
     room = null; localTrack = null
     return
   }
@@ -1251,13 +1246,12 @@ async function leave() {
   console.log('[VoiceSystem] leave() called')
   connected = false
 
-  if (speakingFrameId) { clearInterval(speakingFrameId); speakingFrameId = null }
+  if (speakingFrameId) { cancelAnimationFrame(speakingFrameId); speakingFrameId = null }
   if (volumeInterval) { clearInterval(volumeInterval); volumeInterval = null }
   if (socket) { socket.disconnect(); socket = null }
   cleanupAudio()
-  pannerNodes.forEach(p => p.disconnect())
   pannerNodes.clear()
-  remoteAudioCtx = null
+  if (remoteAudioCtx) { remoteAudioCtx.close(); remoteAudioCtx = null }
   if (localTrack) { localTrack.stop(); localTrack = null }
   if (room) { room.disconnect(); room = null }
 
@@ -1303,9 +1297,9 @@ function startSpeakingDetection(userId) {
   })
   // Sync mute state from Roblox (mode "Mute" selected in-game)
   socket.on('muteState', ({ muted }) => {
-    if (connected) {
+    if (connected && muted !== isMuted) {
       console.log('[VoiceSystem] Mute state synced from Roblox ->', muted)
-      setMuteState(muted)
+      toggleMute()
     }
   })
   console.log('[VoiceSystem] socket.io connecting...')
@@ -1315,7 +1309,10 @@ function startSpeakingDetection(userId) {
   let frameCount = 0
 
   function loop() {
-    if (!connected) return
+    if (!connected) {
+      console.log('[VoiceSystem] Speaking detection loop stopped (disconnected)')
+      return
+    }
     analyserNode.getByteFrequencyData(arr)
     const volume = arr.reduce((a, b) => a + b, 0) / arr.length
     const speaking = volume > 30
@@ -1366,105 +1363,108 @@ function startSpeakingDetection(userId) {
     }
 
     socket.emit('speaking', { speaking })
+
+    speakingFrameId = requestAnimationFrame(loop)
   }
 
-  speakingFrameId = setInterval(loop, 100)
-  console.log('[VoiceSystem] Speaking detection loop started (100ms interval)')
+  loop()
 }
 
 function startSpatialSync(userId) {
   console.log('[VoiceSystem] startSpatialSync() | userId:', userId)
   const lastModes = {}
   const lastMuted = {}
+  volumeInterval = setInterval(async () => {
+    if (!room) return
+    try {
+      const res = await fetch('/state-all')
+      const data = await res.json()
+      if (!data.players) return
 
-  function applyStateAll(data) {
-    if (!room || !data.players) return
-
-    // Update audio listener position and orientation from the local player's Roblox data
-    const myData = data.players[userId]
-    if (myData && myData.position && remoteAudioCtx) {
-      const p = myData.position
-      const listener = remoteAudioCtx.listener
-      // Modern Web Audio API exposes position/orientation as AudioParams
-      if (listener.positionX) {
-        listener.positionX.value = p.x || 0
-        listener.positionY.value = p.y || 0
-        listener.positionZ.value = p.z || 0
-        listener.forwardX.value = p.lx || 0
-        listener.forwardY.value = p.ly || 0
-        listener.forwardZ.value = p.lz || 0
-        listener.upX.value = 0
-        listener.upY.value = 1
-        listener.upZ.value = 0
-      } else {
-        listener.setPosition(p.x || 0, p.y || 0, p.z || 0)
-        listener.setOrientation(p.lx || 0, p.ly || 0, p.lz || 0, 0, 1, 0)
-      }
-    }
-
-    room.remoteParticipants.forEach(participant => {
-      const id = String(participant.identity)
-      const pdata = data.players[id]
-      if (!pdata || !pdata.position) {
-        // No position data yet (e.g. late joiner whose first Roblox tick hasn't
-        // reached the server).  Mute now so they are silent until their real
-        // position arrives, rather than playing from the default (0,0,0) origin.
-        if (lastMuted[id] !== true) {
-          participant.audioTrackPublications.forEach(pub => {
-            if (pub.audioTrack) pub.audioTrack.setVolume(0)
-          })
-          lastMuted[id] = true
+      // Update audio listener position and orientation from the local player's Roblox data
+      const myData = data.players[userId]
+      if (myData && myData.position && remoteAudioCtx) {
+        const p = myData.position
+        const listener = remoteAudioCtx.listener
+        // Modern Web Audio API exposes position/orientation as AudioParams
+        if (listener.positionX) {
+          listener.positionX.value = p.x || 0
+          listener.positionY.value = p.y || 0
+          listener.positionZ.value = p.z || 0
+          listener.forwardX.value = p.lx || 0
+          listener.forwardY.value = p.ly || 0
+          listener.forwardZ.value = p.lz || 0
+          listener.upX.value = 0
+          listener.upY.value = 1
+          listener.upZ.value = 0
+        } else {
+          listener.setPosition(p.x || 0, p.y || 0, p.z || 0)
+          listener.setOrientation(p.lx || 0, p.ly || 0, p.lz || 0, 0, 1, 0)
         }
-        return
       }
 
-      const pos = pdata.position
-      const mode = pos.mode
-      // Dynamic refDistance per mode
-      const refDist = mode === 'Whisper' ? REF_DIST_WHISPER : mode === 'Shout' ? REF_DIST_SHOUT : REF_DIST_TALK
-      const shouldMute = isDeafened || mode === 'Mute'
-
-      const panner = pannerNodes.get(id)
-
-      participant.audioTrackPublications.forEach(pub => {
-        const track = pub.audioTrack
-        if (!track) return
-
-        // Always update spatial position via PannerNode
-        if (panner) {
-          if (panner.positionX) {
-            panner.positionX.value = pos.x || 0
-            panner.positionY.value = pos.y || 0
-            panner.positionZ.value = pos.z || 0
-          } else {
-            panner.setPosition(pos.x || 0, pos.y || 0, pos.z || 0)
+      room.remoteParticipants.forEach(participant => {
+        const id = String(participant.identity)
+        const pdata = data.players[id]
+        if (!pdata || !pdata.position) {
+          // No position data yet (e.g. late joiner whose first Roblox tick hasn't
+          // reached the server).  Mute now so they are silent until their real
+          // position arrives, rather than playing from the default (0,0,0) origin.
+          if (lastMuted[id] !== true) {
+            participant.audioTrackPublications.forEach(pub => {
+              if (pub.audioTrack) pub.audioTrack.setVolume(0)
+            })
+            lastMuted[id] = true
           }
-          // Update refDistance only when mode changes
-          if (lastModes[id] !== mode) {
-            panner.refDistance = refDist
-          }
+          return
         }
 
-        // Apply volume only when mute state changes
+        const pos = pdata.position
+        const mode = pos.mode
+        // Dynamic refDistance per mode
+        const refDist = mode === 'Whisper' ? REF_DIST_WHISPER : mode === 'Shout' ? REF_DIST_SHOUT : REF_DIST_TALK
+        const shouldMute = isDeafened || mode === 'Mute'
+
+        const panner = pannerNodes.get(id)
+
+        participant.audioTrackPublications.forEach(pub => {
+          const track = pub.audioTrack
+          if (!track) return
+
+          // Always update spatial position via PannerNode
+          if (panner) {
+            if (panner.positionX) {
+              panner.positionX.value = pos.x || 0
+              panner.positionY.value = pos.y || 0
+              panner.positionZ.value = pos.z || 0
+            } else {
+              panner.setPosition(pos.x || 0, pos.y || 0, pos.z || 0)
+            }
+            // Update refDistance only when mode changes
+            if (lastModes[id] !== mode) {
+              panner.refDistance = refDist
+            }
+          }
+
+          // Apply volume only when mute state changes
+          if (lastMuted[id] !== shouldMute) {
+            track.setVolume(shouldMute ? 0 : 1)
+          }
+        })
+
+        if (lastModes[id] !== mode) {
+          console.log('[VoiceSystem] Mode changed for', id, '->', mode, '| refDist:', refDist)
+          lastModes[id] = mode
+        }
         if (lastMuted[id] !== shouldMute) {
-          track.setVolume(shouldMute ? 0 : 1)
+          console.log('[VoiceSystem] Mute state changed for', id, '->', shouldMute)
+          lastMuted[id] = shouldMute
         }
       })
-
-      if (lastModes[id] !== mode) {
-        console.log('[VoiceSystem] Mode changed for', id, '->', mode, '| refDist:', refDist)
-        lastModes[id] = mode
-      }
-      if (lastMuted[id] !== shouldMute) {
-        console.log('[VoiceSystem] Mute state changed for', id, '->', shouldMute)
-        lastMuted[id] = shouldMute
-      }
-    })
-  }
-
-  // Receive real-time state pushed by the server on every position update
-  socket.on('state-all', applyStateAll)
-  console.log('[VoiceSystem] Spatial sync started via WebSocket')
+    } catch (e) {
+      console.warn('[VoiceSystem] /state-all fetch failed:', e)
+    }
+  }, 200)
 }
 </script>
 
