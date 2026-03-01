@@ -6,7 +6,6 @@ import rateLimit from "express-rate-limit"
 import { AccessToken } from "livekit-server-sdk"
 import { createServer } from "http"
 import { Server as SocketIOServer } from "socket.io"
-import { timingSafeEqual } from "crypto"
 
 dotenv.config()
 
@@ -17,22 +16,6 @@ const io = new SocketIOServer(httpServer, { cors: { origin: "*" } })
 app.use(cors())
 app.use(express.json())
 app.use(express.static("public"))
-
-// Simple cookie parser (avoids an extra dependency)
-function parseCookies(req) {
-  const cookies = {}
-  const header = req.headers.cookie
-  if (!header) return cookies
-  header.split(";").forEach(part => {
-    const [key, ...rest] = part.split("=")
-    try {
-      cookies[key.trim()] = decodeURIComponent(rest.join("=").trim())
-    } catch (_) {
-      // Skip malformed percent-encoded values
-    }
-  })
-  return cookies
-}
 
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -48,21 +31,6 @@ let speakingStates = {}
 
 // Map userId (string) → socket for mute sync
 const userSockets = new Map()
-
-function buildStateAll() {
-  const players = {}
-  const allUserIds = new Set([
-    ...Object.keys(positions),
-    ...Object.keys(speakingStates)
-  ])
-  for (let id of allUserIds) {
-    players[id] = {
-      speaking: speakingStates[id] || false,
-      position: positions[id] || null
-    }
-  }
-  return { players }
-}
 
 const ROBLOX_REDIRECT_URI = process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
 
@@ -121,17 +89,9 @@ app.get("/oauth/callback", async (req, res) => {
     at.addGrant({ roomJoin: true, room: "roblox-room", canPublish: true, canSubscribe: true })
     const token = await at.toJwt()
 
-    const cookieOpts = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 5 * 60 * 1000 // 5 minutes — consumed by /auth/session on page load
-    }
-    res.cookie("lk_token", token, cookieOpts)
-    res.cookie("lk_userId", userId, cookieOpts)
-    res.cookie("lk_username", username, cookieOpts)
-    res.cookie("lk_url", process.env.LIVEKIT_URL || "", cookieOpts)
-    res.redirect("/")
+    res.redirect(
+      `/?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&livekitUrl=${encodeURIComponent(process.env.LIVEKIT_URL)}`
+    )
   } catch (err) {
     const status = err.response?.status || 500
     const detail = err.response?.data?.error || err.message || "Unknown error"
@@ -140,45 +100,8 @@ app.get("/oauth/callback", async (req, res) => {
   }
 })
 
-// 🔐 Auth session — client fetches this on page load to retrieve LiveKit credentials
-// stored as HttpOnly cookies by /oauth/callback
-app.get("/auth/session", (req, res) => {
-  const cookies = parseCookies(req)
-  const token = cookies.lk_token
-  const userId = cookies.lk_userId
-  if (!token || !userId) {
-    return res.status(401).json({ error: "No session" })
-  }
-  const username = cookies.lk_username || "RobloxUser"
-  const livekitUrl = cookies.lk_url || ""
-  // Clear the session cookies after delivering them once
-  const clearOpts = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 0 }
-  res.clearCookie("lk_token", clearOpts)
-  res.clearCookie("lk_userId", clearOpts)
-  res.clearCookie("lk_username", clearOpts)
-  res.clearCookie("lk_url", clearOpts)
-  res.json({ token, userId, username, livekitUrl })
-})
-
 // 📡 Position update
 app.post("/position", (req, res) => {
-  // Require the shared secret that the Roblox server script must send
-  const expectedSecret = process.env.POSITION_SECRET
-  if (expectedSecret) {
-    const provided = req.headers.authorization || ""
-    let authorized = false
-    try {
-      authorized =
-        provided.length === expectedSecret.length &&
-        timingSafeEqual(Buffer.from(provided), Buffer.from(expectedSecret))
-    } catch (_) {
-      authorized = false
-    }
-    if (!authorized) {
-      return res.status(403).json({ error: "Forbidden" })
-    }
-  }
-
   const { userId, x, y, z, lx, ly, lz, mode } = req.body
   if (!userId) return res.status(400).json({ error: "userId is required" })
 
@@ -192,9 +115,6 @@ app.post("/position", (req, res) => {
       userSocket.emit("muteState", { muted: mode === "Mute" })
     }
   }
-
-  // Push full state update to all connected browser sockets
-  io.emit("state-all", buildStateAll())
 
   res.json({ success: true })
 })
@@ -259,7 +179,21 @@ app.get("/speaking/:userId", (req, res) => {
 // 📦 State-all endpoint — positions, modes, and speaking states for all players.
 // Volume attenuation is handled entirely by the browser's spatial audio engine.
 app.get("/state-all", (req, res) => {
-  res.json(buildStateAll())
+  const players = {}
+
+  const allUserIds = new Set([
+    ...Object.keys(positions),
+    ...Object.keys(speakingStates)
+  ])
+
+  for (let id of allUserIds) {
+    players[id] = {
+      speaking: speakingStates[id] || false,
+      position: positions[id] || null
+    }
+  }
+
+  res.json({ players })
 })
 
 const port = process.env.PORT || 3000
