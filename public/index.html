@@ -914,6 +914,7 @@ const lingerUntil = {}
 
 // UI state
 let isMuted = false
+let autoMuteArmed = false
 let isDeafened = false
 let micGain = 1.0
 let selectedDevice = null
@@ -944,26 +945,43 @@ console.log('[VoiceSystem] index.html loaded')
 // Read token + userId from URL params set by /oauth/callback, then clean the URL.
 // The URL is immediately replaced via history.replaceState to remove tokens from browser history.
 async function refreshSession() {
+  const joinBtn = document.getElementById('joinBtn')
+  const usernameEl = document.getElementById('robloxUsername')
+
+  // Dev helper (Studio): if URL contains devKey+devUid, set a dev session cookie once.
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const devKey = params.get('devKey')
+    const devUid = params.get('devUid')
+    const devName = params.get('devName') || devUid
+    if (devKey && devUid) {
+      await fetch(`/dev/login?key=${encodeURIComponent(devKey)}&uid=${encodeURIComponent(devUid)}&name=${encodeURIComponent(devName)}`, {
+        credentials: 'include'
+      })
+      history.replaceState({}, '', '/')
+    }
+  } catch {}
+
   try {
     const res = await fetch('/session', { credentials: 'include' })
     if (res.status === 401) {
       sessionInfo = null
-      document.getElementById('joinBtn').textContent = 'Se connecter'
-      const usernameEl = document.getElementById('robloxUsername')
+      joinBtn.textContent = 'Se connecter'
       usernameEl.style.display = 'none'
       usernameEl.textContent = ''
       return
     }
     if (res.status === 409) {
       sessionInfo = null
-      document.getElementById('joinBtn').textContent = 'RafraÃ®chir'
-      showError("Lance Roblox (le jeu) et attends 2â€“3 secondes, puis clique â€˜RafraÃ®chirâ€™.")
+      joinBtn.textContent = 'Rafraichir'
+      showError("Lance Roblox et attends 2-3 secondes, puis clique 'Rafraichir'. (En Studio multi-joueurs, utilise le mode dev.)")
       return
     }
     if (!res.ok) throw new Error('HTTP ' + res.status)
     sessionInfo = await res.json()
     clearError()
-    usernameEl.textContent = 'ðŸ‘¤ ' + (sessionInfo.username || 'RobloxUser')
+    joinBtn.textContent = 'Rejoindre la voix'
+    usernameEl.textContent = String(sessionInfo.username || 'RobloxUser')
     usernameEl.style.display = 'block'
   } catch (e) {
     console.warn('[VoiceSystem] /session failed:', e)
@@ -1250,6 +1268,7 @@ async function join() {
 
   connected = true
   isMuted = false
+  autoMuteArmed = true
   isDeafened = false
   setStatus('connected', 'Connecté — voix active')
   btn.textContent = 'Quitter la voix'
@@ -1266,6 +1285,7 @@ async function join() {
 async function leave() {
   console.log('[VoiceSystem] leave() called')
   connected = false
+  autoMuteArmed = false
 
   if (speakingFrameId) { cancelAnimationFrame(speakingFrameId); speakingFrameId = null }
   if (volumeInterval) { clearInterval(volumeInterval); volumeInterval = null }
@@ -1403,6 +1423,14 @@ function startSpatialSync(userId) {
     }
 
     const p = payload.me
+
+    // We start muted to avoid any leak before Roblox state arrives. Once we have our first
+    // state sync, unmute automatically unless the in-game mode is "Mute".
+    if (autoMuteArmed) {
+      if (p.mode !== 'Mute' && isMuted) toggleMute()
+      autoMuteArmed = false
+    }
+
     const listener = remoteAudioCtx.listener
     if (listener.positionX) {
       listener.positionX.value = p.x || 0
@@ -1421,12 +1449,25 @@ function startSpatialSync(userId) {
 
     const now = Date.now()
     const inRange = payload.others || []
-    const inRangeSet = new Set(inRange.map(o => String(o.id)))
 
-    // Subscribe only to in-range players that are currently speaking (plus a short tail)
-    inRange.forEach(o => {
-      const id = String(o.id)
-      if (o.speaking) lingerUntil[id] = now + 1500
+    // Keep subscriptions stable and bounded:
+    // - Prefer speakers
+    // - Then closest
+    // - Cap total subscriptions (prevents 100-player rooms from downloading 99 streams)
+    const MAX_SUB = 12
+    const scored = inRange.map(o => {
+      const dx = (o.x || 0) - (p.x || 0)
+      const dy = (o.y || 0) - (p.y || 0)
+      const dz = (o.z || 0) - (p.z || 0)
+      const d2 = dx*dx + dy*dy + dz*dz
+      return { o, id: String(o.id), d2, speaking: !!o.speaking }
+    })
+    scored.sort((a, b) => (b.speaking - a.speaking) || (a.d2 - b.d2))
+    const selected = new Set(scored.slice(0, MAX_SUB).map(s => s.id))
+
+    // Speaking tail: when we see speaking=true, keep subscribed for a short time.
+    scored.forEach(s => {
+      if (s.speaking) lingerUntil[s.id] = now + 1500
     })
 
     // Update panners for audible players we are subscribed to
@@ -1452,7 +1493,7 @@ function startSpatialSync(userId) {
     // Subscription control: do NOT download audio tracks out of range (critical for 100 players)
     room.remoteParticipants.forEach(participant => {
       const id = String(participant.identity)
-      const shouldSub = !isDeafened && inRangeSet.has(id) && (now < (lingerUntil[id] || 0))
+      const shouldSub = !isDeafened && selected.has(id)
       participant.audioTrackPublications.forEach(pub => {
         if (pub.setSubscribed) pub.setSubscribed(shouldSub)
         if (!shouldSub && pub.audioTrack) pub.audioTrack.setVolume(0)

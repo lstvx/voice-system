@@ -31,9 +31,35 @@ print("[VoiceSystem] ServerScript ready | backend:", RAILWAY, "| jobId:", game.J
 -- Latest state received from each player (server memory)
 -- playerStates[userIdStr] = {x,y,z,lx,ly,lz,mode}
 local playerStates = {}
+local resolvedIdByPlayer = {}
 
-local function setPlayerState(player, x, y, z, lx, ly, lz, mode)
-	playerStates[tostring(player.UserId)] = {
+local function resolveStableUserId(player)
+	-- In Studio test sessions, Player.UserId can be 0 / negative for test players.
+	-- Try resolving the real account UserId from the username so it matches OAuth userId.
+	if player.UserId and player.UserId > 0 then
+		return tostring(player.UserId)
+	end
+
+	if resolvedIdByPlayer[player] then
+		return resolvedIdByPlayer[player]
+	end
+
+	local ok, uid = pcall(function()
+		return Players:GetUserIdFromNameAsync(player.Name)
+	end)
+
+	if ok and typeof(uid) == "number" and uid > 0 then
+		resolvedIdByPlayer[player] = tostring(uid)
+		return resolvedIdByPlayer[player]
+	end
+
+	-- Studio fallback: stable synthetic id shared between Roblox and the web dev session.
+	resolvedIdByPlayer[player] = "studio:" .. player.Name
+	return resolvedIdByPlayer[player]
+end
+
+local function setPlayerState(userIdStr, x, y, z, lx, ly, lz, mode)
+	playerStates[userIdStr] = {
 		x = x,
 		y = y,
 		z = z,
@@ -49,11 +75,14 @@ UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
 	if typeof(x) ~= "number" or typeof(y) ~= "number" or typeof(z) ~= "number" then return end
 	if typeof(lx) ~= "number" or typeof(ly) ~= "number" or typeof(lz) ~= "number" then return end
 	if typeof(mode) ~= "string" then mode = "Talk" end
-	setPlayerState(player, x, y, z, lx, ly, lz, mode)
+	local uid = resolveStableUserId(player)
+	setPlayerState(uid, x, y, z, lx, ly, lz, mode)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-	playerStates[tostring(player.UserId)] = nil
+	local uid = resolvedIdByPlayer[player] or tostring(player.UserId)
+	playerStates[uid] = nil
+	resolvedIdByPlayer[player] = nil
 end)
 
 -- 1 HTTP request per server tick (batch), not per player.
@@ -99,7 +128,8 @@ task.spawn(function()
 
 		-- Update only each player's own speaking UI
 		for _, player in Players:GetPlayers() do
-			local s = data.speaking[tostring(player.UserId)]
+			local uid = resolvedIdByPlayer[player] or resolveStableUserId(player)
+			local s = data.speaking[uid]
 			SpeakingUpdated:FireClient(player, s == true)
 		end
 	end

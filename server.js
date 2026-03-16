@@ -30,6 +30,7 @@ const loginLimiter = rateLimit({
 const SESSION_COOKIE = "vs_session"
 const SESSION_SECRET = process.env.SESSION_SECRET || null
 const ROBLOX_SERVER_KEY = process.env.ROBLOX_SERVER_KEY || null
+const DEV_LOGIN_KEY = process.env.DEV_LOGIN_KEY || null
 const ROBLOX_REDIRECT_URI =
   process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
 
@@ -236,6 +237,37 @@ app.get("/oauth/callback", async (req, res) => {
   }
 })
 
+// Dev-only: set a session cookie without OAuth (useful for Studio test users like "studio:Player1").
+// Enable by setting DEV_LOGIN_KEY in environment variables and calling:
+// /dev/login?key=...&uid=studio:Player1&name=Player1
+app.get("/dev/login", (req, res) => {
+  if (!DEV_LOGIN_KEY) return res.status(404).send("Not found")
+  const key = String(req.query.key || "")
+  if (key !== DEV_LOGIN_KEY) return res.status(403).send("Forbidden")
+  const uid = String(req.query.uid || "").slice(0, 128)
+  const name = String(req.query.name || uid || "DevUser").slice(0, 64)
+  if (!uid) return res.status(400).send("Missing uid")
+
+  try {
+    const session = signSession({
+      uid,
+      name,
+      iat: nowMs(),
+      exp: nowMs() + 12 * 60 * 60 * 1000 // 12h
+    })
+    res.cookie(SESSION_COOKIE, session, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/"
+    })
+    res.json({ ok: true })
+  } catch (e) {
+    console.error("[VoiceSystem] dev/login failed:", e)
+    res.status(500).json({ error: "dev_login_failed" })
+  }
+})
+
 // Roblox server -> batch position/mode updates (one request per server tick, not per player)
 app.post("/roblox/batch", (req, res) => {
   if (!ROBLOX_SERVER_KEY) return res.status(500).json({ error: "ROBLOX_SERVER_KEY not configured" })
@@ -281,7 +313,15 @@ app.post("/roblox/batch", (req, res) => {
     })
     job.lastSeen.set(uid, ts)
     job.lastMode.set(uid, nextMode)
+    const prevJob = userToJob.get(uid)?.jobKey
     userToJob.set(uid, { jobKey, ts })
+
+    // If the user already has a socket connected (before Roblox sync), move it into the job room now.
+    // This fixes "no one hears anyone" when /session initially returns 409 and sockets never join job:*.
+    if (prevJob && prevJob !== jobKey) {
+      io.to(`user:${uid}`).socketsLeave(`job:${prevJob}`)
+    }
+    io.to(`user:${uid}`).socketsJoin(`job:${jobKey}`)
 
     speakingOut[uid] = speakingByUser.get(uid)?.speaking || false
 
@@ -392,4 +432,3 @@ const port = process.env.PORT || 3000
 httpServer.listen(port, () => {
   console.log(`Voice server running on port ${port}`)
 })
-
