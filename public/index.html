@@ -905,7 +905,9 @@ let rawMicTrack = null
 
 // Spatial audio — remote tracks
 let remoteAudioCtx = null
-const pannerNodes = new Map() // participantIdentity → PannerNode
+const pannerNodes = new Map()   // participantIdentity → PannerNode
+const lastMutedStates = {}      // participantIdentity → last applied shouldMute boolean
+const lastModeStates  = {}      // participantIdentity → last applied mode string
 
 // UI state
 let isMuted = false
@@ -1195,13 +1197,20 @@ async function join() {
       // Inject PannerNode into livekit's Web Audio chain, then attach to start playback
       track.setWebAudioPlugins([panner])
       track.attach()
+      // Silence immediately — position data is not yet available for late joiners.
+      // startSpatialSync will unmute once the first /state-all response with a valid
+      // position for this participant is received (lastMutedStates[id] starts undefined,
+      // so the first sync always triggers setVolume).
+      track.setVolume(0)
       pannerNodes.set(participant.identity, panner)
-      console.log('[VoiceSystem] Spatial audio configured for', participant.identity)
+      console.log('[VoiceSystem] Spatial audio configured (muted until position sync) for', participant.identity)
     })
 
     room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       if (track.kind !== LivekitClient.Track.Kind.Audio) return
       pannerNodes.delete(participant.identity)
+      delete lastMutedStates[participant.identity]
+      delete lastModeStates[participant.identity]
       console.log('[VoiceSystem] Track unsubscribed for', participant.identity)
     })
 
@@ -1248,6 +1257,8 @@ async function leave() {
   if (socket) { socket.disconnect(); socket = null }
   cleanupAudio()
   pannerNodes.clear()
+  Object.keys(lastMutedStates).forEach(k => delete lastMutedStates[k])
+  Object.keys(lastModeStates).forEach(k => delete lastModeStates[k])
   if (remoteAudioCtx) { remoteAudioCtx.close(); remoteAudioCtx = null }
   if (localTrack) { localTrack.stop(); localTrack = null }
   if (room) { room.disconnect(); room = null }
@@ -1369,8 +1380,6 @@ function startSpeakingDetection(userId) {
 
 function startSpatialSync(userId) {
   console.log('[VoiceSystem] startSpatialSync() | userId:', userId)
-  const lastModes = {}
-  const lastMuted = {}
   volumeInterval = setInterval(async () => {
     if (!room) return
     try {
@@ -1427,24 +1436,24 @@ function startSpatialSync(userId) {
               panner.setPosition(pos.x || 0, pos.y || 0, pos.z || 0)
             }
             // Update refDistance only when mode changes
-            if (lastModes[id] !== mode) {
+            if (lastModeStates[id] !== mode) {
               panner.refDistance = refDist
             }
           }
 
           // Apply volume only when mute state changes
-          if (lastMuted[id] !== shouldMute) {
+          if (lastMutedStates[id] !== shouldMute) {
             track.setVolume(shouldMute ? 0 : 1)
           }
         })
 
-        if (lastModes[id] !== mode) {
+        if (lastModeStates[id] !== mode) {
           console.log('[VoiceSystem] Mode changed for', id, '->', mode, '| refDist:', refDist)
-          lastModes[id] = mode
+          lastModeStates[id] = mode
         }
-        if (lastMuted[id] !== shouldMute) {
+        if (lastMutedStates[id] !== shouldMute) {
           console.log('[VoiceSystem] Mute state changed for', id, '->', shouldMute)
-          lastMuted[id] = shouldMute
+          lastMutedStates[id] = shouldMute
         }
       })
     } catch (e) {
