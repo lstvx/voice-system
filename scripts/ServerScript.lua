@@ -1,6 +1,6 @@
 -- Place this Script in ServerScriptService.
--- It is the only place in the game that uses HttpService.
--- LocalScripts communicate via RemoteEvents (LocalScript → RemoteEvent → ServerScript → HTTP).
+-- This script is the ONLY place in the game that uses HttpService.
+-- LocalScripts -> RemoteEvent -> this script -> HTTP batch to the external voice backend.
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -8,78 +8,99 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RAILWAY = "https://credent.up.railway.app"
 
--- Create the shared RemoteEvents folder in ReplicatedStorage
-local VoiceSystemEvents = Instance.new("Folder")
-VoiceSystemEvents.Name = "VoiceSystemEvents"
-VoiceSystemEvents.Parent = ReplicatedStorage
+-- Must match backend env ROBLOX_SERVER_KEY
+local ROBLOX_SERVER_KEY = "EFPKCqLjCP1ynbKvAI1rZUj4O8iNVFMufvm4BJCQL9WwY4ZC/v7hQRQy9vL6+TKo"
 
-local UpdatePosition  = Instance.new("RemoteEvent")
-UpdatePosition.Name   = "UpdatePosition"
-UpdatePosition.Parent = VoiceSystemEvents
-
-local SpeakingUpdated  = Instance.new("RemoteEvent")
-SpeakingUpdated.Name   = "SpeakingUpdated"
-SpeakingUpdated.Parent = VoiceSystemEvents
-
-print("[VoiceSystem] ServerScript valide | SITE WEB :", RAILWAY)
-
--- Receive position (with LookVector direction) from LocalScript and forward to backend
-UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
-	local ok, err = pcall(function()
-		HttpService:RequestAsync({
-			Url = RAILWAY .. "/position",
-			Method = "POST",
-			Headers = {
-				["Content-Type"] = "application/json",
-				["Authorization"] = "7f92a1d3_voice_secure_key"
-			},
-			Body = HttpService:JSONEncode({
-				userId = player.UserId,
-				x = x,
-				y = y,
-				z = z,
-				lx = lx,
-				ly = ly,
-				lz = lz,
-				mode = mode
-			})
-		})
-	end)
-
-	if not ok then
-		warn("[VoiceSystem] ERROR sending position for", player.Name, ":", err)
+local function getOrCreate(parent, className, name)
+	local existing = parent:FindFirstChild(name)
+	if existing and existing.ClassName == className then
+		return existing
 	end
+	local inst = Instance.new(className)
+	inst.Name = name
+	inst.Parent = parent
+	return inst
+end
+
+local VoiceSystemEvents = getOrCreate(ReplicatedStorage, "Folder", "VoiceSystemEvents")
+local UpdatePosition = getOrCreate(VoiceSystemEvents, "RemoteEvent", "UpdatePosition")
+local SpeakingUpdated = getOrCreate(VoiceSystemEvents, "RemoteEvent", "SpeakingUpdated")
+
+print("[VoiceSystem] ServerScript ready | backend:", RAILWAY, "| jobId:", game.JobId)
+
+-- Latest state received from each player (server memory)
+-- playerStates[userIdStr] = {x,y,z,lx,ly,lz,mode}
+local playerStates = {}
+
+local function setPlayerState(player, x, y, z, lx, ly, lz, mode)
+	playerStates[tostring(player.UserId)] = {
+		x = x,
+		y = y,
+		z = z,
+		lx = lx,
+		ly = ly,
+		lz = lz,
+		mode = mode
+	}
+end
+
+UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
+	-- Minimal sanity checks to reduce garbage in the batch payload
+	if typeof(x) ~= "number" or typeof(y) ~= "number" or typeof(z) ~= "number" then return end
+	if typeof(lx) ~= "number" or typeof(ly) ~= "number" or typeof(lz) ~= "number" then return end
+	if typeof(mode) ~= "string" then mode = "Talk" end
+	setPlayerState(player, x, y, z, lx, ly, lz, mode)
 end)
 
--- Poll /state-all once per tick for all players — one request regardless of player count.
--- At 0.5 s interval: 2 req/s total, well within Roblox's 500 req/min HttpService limit
--- for up to 120 players.
+Players.PlayerRemoving:Connect(function(player)
+	playerStates[tostring(player.UserId)] = nil
+end)
+
+-- 1 HTTP request per server tick (batch), not per player.
+-- Keep under HttpService limits: 0.25s => 4 req/s => 240 req/min total.
+local BATCH_INTERVAL = 0.25
+
 task.spawn(function()
 	while true do
-		task.wait(0.5)
+		task.wait(BATCH_INTERVAL)
+
+		-- Build a minimal payload
+		local payload = {
+			jobId = game.JobId,
+			placeId = game.PlaceId,
+			players = playerStates
+		}
 
 		local ok, res = pcall(function()
-			return HttpService:GetAsync(RAILWAY .. "/state-all")
+			return HttpService:RequestAsync({
+				Url = RAILWAY .. "/roblox/batch",
+				Method = "POST",
+				Headers = {
+					["Content-Type"] = "application/json",
+					["Authorization"] = "Bearer " .. ROBLOX_SERVER_KEY
+				},
+				Body = HttpService:JSONEncode(payload)
+			})
 		end)
 
-		if not ok or not res then
-			warn("[VoiceSystem] ERROR fetching /state-all:", tostring(res))
+		if not ok or not res or not res.Success then
+			-- Avoid log spam
 			continue
 		end
+
+		local body = res.Body
+		if not body or body == "" then continue end
 
 		local ok2, data = pcall(function()
-			return HttpService:JSONDecode(res)
+			return HttpService:JSONDecode(body)
 		end)
 
-		if not ok2 or not data or not data.players then
-			continue
-		end
+		if not ok2 or not data or typeof(data.speaking) ~= "table" then continue end
 
+		-- Update only each player's own speaking UI
 		for _, player in Players:GetPlayers() do
-			local userData = data.players[tostring(player.UserId)]
-			if not userData then continue end
-
-			SpeakingUpdated:FireClient(player, userData.speaking or false)
+			local s = data.speaking[tostring(player.UserId)]
+			SpeakingUpdated:FireClient(player, s == true)
 		end
 	end
 end)

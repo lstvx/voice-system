@@ -145,14 +145,57 @@ end)
 -- SEND POSITION
 --========================
 
+local SEND_INTERVAL = 0.20 -- 5 Hz (robust enough for proximity without spamming)
+local MIN_MOVE_STUDS = 1.0
+local MIN_LOOK_DOT = 0.985 -- ~10 degrees
+local FORCE_HEARTBEAT = 1.0 -- always send at least once per second
+
 task.spawn(function()
+	local lastPos = nil
+	local lastLook = nil
+	local lastMode = nil
+	local lastSent = 0
+
 	while true do
-		task.wait(1)
-		if player.Character and player.Character.PrimaryPart then
-			local root = player.Character.PrimaryPart
-			local pos  = root.Position
-			local look = root.CFrame.LookVector
+		task.wait(SEND_INTERVAL)
+
+		if not (player.Character and player.Character.PrimaryPart) then
+			continue
+		end
+
+		local root = player.Character.PrimaryPart
+		local pos = root.Position
+		local look = root.CFrame.LookVector
+
+		local changed = false
+		if lastPos == nil then
+			changed = true
+		else
+			if (pos - lastPos).Magnitude >= MIN_MOVE_STUDS then
+				changed = true
+			end
+		end
+
+		if not changed and lastLook ~= nil then
+			if look:Dot(lastLook) <= MIN_LOOK_DOT then
+				changed = true
+			end
+		end
+
+		if lastMode ~= mode then
+			changed = true
+		end
+
+		if not changed and (tick() - lastSent) >= FORCE_HEARTBEAT then
+			changed = true
+		end
+
+		if changed then
 			UpdatePosition:FireServer(pos.X, pos.Y, pos.Z, look.X, look.Y, look.Z, mode)
+			lastPos = pos
+			lastLook = look
+			lastMode = mode
+			lastSent = tick()
 		end
 	end
 end)

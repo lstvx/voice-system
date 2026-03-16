@@ -29,6 +29,8 @@ LIVEKIT_URL=wss://your-project.livekit.cloud
 ROBLOX_CLIENT_ID=your_roblox_oauth_client_id
 ROBLOX_CLIENT_SECRET=your_roblox_oauth_client_secret
 ROBLOX_REDIRECT_URI=https://credent.up.railway.app/oauth/callback
+ROBLOX_SERVER_KEY=change_me_to_a_long_random_secret
+SESSION_SECRET=change_me_to_a_long_random_secret
 PORT=3000
 ```
 
@@ -63,11 +65,9 @@ User → /login
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/login` | Redirect user to Roblox OAuth authorization page |
-| GET | `/oauth/callback` | Exchange OAuth code for LiveKit token, redirect to UI |
-| POST | `/position` | Update player position and voice mode |
-| POST | `/speaking` | Update speaking state |
-| GET | `/speaking/:userId` | Get speaking state of a player |
-| GET | `/state-all` | Get speaking state, volumes and positions for all players |
+| GET | `/oauth/callback` | OAuth callback, sets session cookie and redirects to UI |
+| GET | `/session` | Get LiveKit token + room for the current Roblox server |
+| POST | `/roblox/batch` | (Roblox server) Batch update positions/modes for all players in a server |
 | GET | `/connected` | Get number of voice-connected users |
 
 ## Voice Modes (press V to cycle)

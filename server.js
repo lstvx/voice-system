@@ -6,15 +6,18 @@ import rateLimit from "express-rate-limit"
 import { AccessToken } from "livekit-server-sdk"
 import { createServer } from "http"
 import { Server as SocketIOServer } from "socket.io"
+import crypto from "crypto"
 
 dotenv.config()
 
 const app = express()
 const httpServer = createServer(app)
-const io = new SocketIOServer(httpServer, { cors: { origin: "*" } })
+const io = new SocketIOServer(httpServer, {
+  cors: { origin: process.env.CORS_ORIGIN || true, credentials: true }
+})
 
-app.use(cors())
-app.use(express.json())
+app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }))
+app.use(express.json({ limit: "1mb" }))
 app.use(express.static("public"))
 
 const loginLimiter = rateLimit({
@@ -24,21 +27,152 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 })
 
-// Note: positions and speakingStates are stored in memory.
-// Data is lost on restart and this does not scale across multiple instances.
-let positions = {}
-let speakingStates = {}
+const SESSION_COOKIE = "vs_session"
+const SESSION_SECRET = process.env.SESSION_SECRET || null
+const ROBLOX_SERVER_KEY = process.env.ROBLOX_SERVER_KEY || null
+const ROBLOX_REDIRECT_URI =
+  process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
 
-// Map userId (string) → socket for mute sync
-const userSockets = new Map()
+function nowMs() {
+  return Date.now()
+}
 
-const ROBLOX_REDIRECT_URI = process.env.ROBLOX_REDIRECT_URI || "https://credent.up.railway.app/oauth/callback"
+function b64urlEncodeString(s) {
+  return Buffer.from(String(s), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "")
+}
 
-// 🔑 OAuth2 login — redirect user to Roblox authorization page
-app.get("/login", loginLimiter, (req, res) => {
-  if (!process.env.ROBLOX_CLIENT_ID) {
-    return res.status(500).send("ROBLOX_CLIENT_ID not configured")
+function b64urlDecodeToString(s) {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4))
+  const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/")
+  return Buffer.from(b64, "base64").toString("utf8")
+}
+
+function parseCookies(header) {
+  const out = {}
+  if (!header) return out
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=")
+    if (idx === -1) continue
+    const k = part.slice(0, idx).trim()
+    const v = part.slice(idx + 1).trim()
+    out[k] = decodeURIComponent(v)
   }
+  return out
+}
+
+function signSession(payloadObj) {
+  if (!SESSION_SECRET) throw new Error("SESSION_SECRET not configured")
+  const payload = b64urlEncodeString(JSON.stringify(payloadObj))
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url")
+  return `${payload}.${sig}`
+}
+
+function verifySession(token) {
+  if (!SESSION_SECRET) return null
+  if (!token || typeof token !== "string") return null
+  const parts = token.split(".")
+  if (parts.length !== 2) return null
+  const [payload, sig] = parts
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url")
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
+  } catch {
+    return null
+  }
+
+  let obj
+  try {
+    obj = JSON.parse(b64urlDecodeToString(payload))
+  } catch {
+    return null
+  }
+  if (!obj || !obj.uid || !obj.exp) return null
+  if (nowMs() > obj.exp) return null
+  return obj
+}
+
+function sanitizeLiveKitRoomName(placeId, jobId) {
+  const pj = String(placeId || "0").replace(/[^0-9]/g, "")
+  const jj = String(jobId || "").replace(/[^a-zA-Z0-9_-]/g, "")
+  return `rbx_${pj}_${jj}`.slice(0, 180)
+}
+
+function modeRadius(mode) {
+  if (mode === "Whisper") return 10
+  if (mode === "Talk") return 25
+  if (mode === "Shout") return 60
+  return 0
+}
+
+// In-memory state (single instance). For multi-instance: move to Redis + pub/sub.
+// jobKey = `${placeId}:${jobId}`
+const jobs = new Map() // jobKey -> { placeId, jobId, players: Map(uid->pos), lastSeen: Map(uid->ts), lastMode: Map(uid->mode) }
+const userToJob = new Map() // uid -> { jobKey, ts }
+const speakingByUser = new Map() // uid -> { speaking, ts }
+
+const userSockets = new Map() // uid -> Set(socket)
+const connectedUsers = new Set() // uid
+
+function broadcastConnectedCount() {
+  io.emit("connectedCount", connectedUsers.size)
+}
+
+function getRecentJobForUser(uid, maxAgeMs = 15_000) {
+  const entry = userToJob.get(String(uid))
+  if (!entry) return null
+  if (nowMs() - entry.ts > maxAgeMs) return null
+  return entry.jobKey
+}
+
+function cleanupJob(jobKey, ttlMs = 15_000) {
+  const job = jobs.get(jobKey)
+  if (!job) return
+  const cutoff = nowMs() - ttlMs
+  for (const [uid, ts] of job.lastSeen.entries()) {
+    if (ts < cutoff) {
+      job.lastSeen.delete(uid)
+      job.players.delete(uid)
+      job.lastMode.delete(uid)
+    }
+  }
+}
+
+function computeAudibleState(job, meUid) {
+  const me = job.players.get(meUid) || null
+  if (!me) return { me: null, others: [] }
+
+  const out = []
+  for (const [uid, pos] of job.players.entries()) {
+    if (uid === meUid) continue
+    if (!pos) continue
+    const r = modeRadius(pos.mode)
+    if (r <= 0) continue
+    const dx = (pos.x || 0) - (me.x || 0)
+    const dy = (pos.y || 0) - (me.y || 0)
+    const dz = (pos.z || 0) - (me.z || 0)
+    if (dx * dx + dy * dy + dz * dz <= r * r) {
+      const s = speakingByUser.get(uid)?.speaking || false
+      out.push({
+        id: uid,
+        x: pos.x || 0,
+        y: pos.y || 0,
+        z: pos.z || 0,
+        mode: pos.mode || "Talk",
+        speaking: s
+      })
+    }
+  }
+
+  return { me, others: out }
+}
+
+// OAuth2 login -> Roblox authorize
+app.get("/login", loginLimiter, (req, res) => {
+  if (!process.env.ROBLOX_CLIENT_ID) return res.status(500).send("ROBLOX_CLIENT_ID not configured")
   const redirectUri = encodeURIComponent(ROBLOX_REDIRECT_URI)
   const url =
     "https://authorize.roblox.com/?" +
@@ -49,11 +183,10 @@ app.get("/login", loginLimiter, (req, res) => {
   res.redirect(url)
 })
 
-// 🔑 OAuth2 callback — Roblox redirects here after user authorization
+// OAuth2 callback -> sets a HttpOnly session cookie (no token in URL)
 app.get("/oauth/callback", async (req, res) => {
   const { code } = req.query
   if (!code) return res.status(400).send("Missing authorization code")
-
   if (!process.env.ROBLOX_CLIENT_ID || !process.env.ROBLOX_CLIENT_SECRET) {
     return res.status(500).send("OAuth environment variables not configured")
   }
@@ -72,26 +205,29 @@ app.get("/oauth/callback", async (req, res) => {
     )
 
     const accessToken = tokenRes.data.access_token
+    const userRes = await axios.get("https://apis.roblox.com/oauth/v1/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    })
 
-    const userRes = await axios.get(
-      "https://apis.roblox.com/oauth/v1/userinfo",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    )
+    const userId = String(userRes.data.sub)
+    const username =
+      String(userRes.data.name || userRes.data.preferred_username || "RobloxUser").slice(0, 64)
 
-    const userId = userRes.data.sub
-    const username = userRes.data.name || userRes.data.preferred_username || "RobloxUser"
+    const session = signSession({
+      uid: userId,
+      name: username,
+      iat: nowMs(),
+      exp: nowMs() + 24 * 60 * 60 * 1000
+    })
 
-    const at = new AccessToken(
-      process.env.LIVEKIT_API_KEY,
-      process.env.LIVEKIT_SECRET,
-      { identity: userId, name: username }
-    )
-    at.addGrant({ roomJoin: true, room: "roblox-room", canPublish: true, canSubscribe: true })
-    const token = await at.toJwt()
+    res.cookie(SESSION_COOKIE, session, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/"
+    })
 
-    res.redirect(
-      `/?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&livekitUrl=${encodeURIComponent(process.env.LIVEKIT_URL)}`
-    )
+    res.redirect("/")
   } catch (err) {
     const status = err.response?.status || 500
     const detail = err.response?.data?.error || err.message || "Unknown error"
@@ -100,103 +236,160 @@ app.get("/oauth/callback", async (req, res) => {
   }
 })
 
-// 📡 Position update
-app.post("/position", (req, res) => {
-  const { userId, x, y, z, lx, ly, lz, mode } = req.body
-  if (!userId) return res.status(400).json({ error: "userId is required" })
+// Roblox server -> batch position/mode updates (one request per server tick, not per player)
+app.post("/roblox/batch", (req, res) => {
+  if (!ROBLOX_SERVER_KEY) return res.status(500).json({ error: "ROBLOX_SERVER_KEY not configured" })
+  const auth = req.headers.authorization || ""
+  if (auth !== `Bearer ${ROBLOX_SERVER_KEY}`) return res.status(401).json({ error: "unauthorized" })
 
-  const prevMode = positions[userId]?.mode
-  positions[userId] = { x, y, z, lx, ly, lz, mode }
+  const { jobId, placeId, players } = req.body || {}
+  if (!jobId || !placeId || !players || typeof players !== "object") {
+    return res.status(400).json({ error: "jobId, placeId, players are required" })
+  }
 
-  // Push mute state change to the user's browser socket
-  if (mode !== prevMode) {
-    const userSocket = userSockets.get(String(userId))
-    if (userSocket) {
-      userSocket.emit("muteState", { muted: mode === "Mute" })
+  const jobKey = `${placeId}:${jobId}`
+  let job = jobs.get(jobKey)
+  if (!job) {
+    job = {
+      placeId: String(placeId),
+      jobId: String(jobId),
+      players: new Map(),
+      lastSeen: new Map(),
+      lastMode: new Map()
+    }
+    jobs.set(jobKey, job)
+  }
+
+  const ts = nowMs()
+  const speakingOut = {}
+
+  for (const [uidRaw, pos] of Object.entries(players)) {
+    const uid = String(uidRaw)
+    if (!pos || typeof pos !== "object") continue
+
+    const prevMode = job.lastMode.get(uid)
+    const nextMode = typeof pos.mode === "string" ? pos.mode : "Talk"
+
+    job.players.set(uid, {
+      x: Number(pos.x) || 0,
+      y: Number(pos.y) || 0,
+      z: Number(pos.z) || 0,
+      lx: Number(pos.lx) || 0,
+      ly: Number(pos.ly) || 0,
+      lz: Number(pos.lz) || 0,
+      mode: nextMode
+    })
+    job.lastSeen.set(uid, ts)
+    job.lastMode.set(uid, nextMode)
+    userToJob.set(uid, { jobKey, ts })
+
+    speakingOut[uid] = speakingByUser.get(uid)?.speaking || false
+
+    if (prevMode !== undefined && prevMode !== nextMode && (prevMode === "Mute" || nextMode === "Mute")) {
+      io.to(`user:${uid}`).emit("muteState", { muted: nextMode === "Mute" })
     }
   }
 
-  res.json({ success: true })
+  cleanupJob(jobKey)
+
+  // Push proximity-filtered state to each connected web client in the same Roblox server.
+  const socketsInJob = io.sockets.adapter.rooms.get(`job:${jobKey}`)
+  if (socketsInJob && socketsInJob.size > 0) {
+    for (const socketId of socketsInJob) {
+      const s = io.sockets.sockets.get(socketId)
+      if (!s) continue
+      const uid = s.data.uid
+      if (!uid) continue
+      const st = computeAudibleState(job, uid)
+      s.emit("state", { t: ts, me: st.me, others: st.others })
+    }
+  }
+
+  res.json({ ok: true, speaking: speakingOut })
 })
 
-// Track voice-connected users
-const connectedUsers = new Set()
+// Web UI -> returns a LiveKit token for the *current Roblox server* (room per JobId)
+app.get("/session", (req, res) => {
+  if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_SECRET || !process.env.LIVEKIT_URL) {
+    return res.status(500).json({ error: "LiveKit environment variables not configured" })
+  }
+  const cookies = parseCookies(req.headers.cookie || "")
+  const sess = verifySession(cookies[SESSION_COOKIE])
+  if (!sess) return res.status(401).json({ error: "unauthorized" })
 
-function broadcastConnectedCount() {
-  io.emit("connectedCount", connectedUsers.size)
-}
+  const uid = String(sess.uid)
+  const username = String(sess.name || "RobloxUser")
 
-// 🔊 Speaking update via socket.io (real-time from browser)
+  const jobKey = getRecentJobForUser(uid)
+  if (!jobKey) return res.status(409).json({ error: "not_in_game" })
+  const job = jobs.get(jobKey)
+  if (!job) return res.status(409).json({ error: "not_in_game" })
+
+  const roomName = sanitizeLiveKitRoomName(job.placeId, job.jobId)
+  const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_SECRET, {
+    identity: uid,
+    name: username
+  })
+  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true })
+
+  res.json({
+    userId: uid,
+    username,
+    jobKey,
+    room: roomName,
+    livekitUrl: process.env.LIVEKIT_URL,
+    token: at.toJwt()
+  })
+})
+
+// Socket.io: auth via HttpOnly session cookie
 io.on("connection", (socket) => {
-  const userId = socket.handshake.auth?.userId
-  if (userId) {
-    connectedUsers.add(userId)
-    userSockets.set(String(userId), socket)
-    broadcastConnectedCount()
-    // 🔥 Forcer mute par défaut au join pour éviter tout leak audio avant le premier sync Roblox
-    socket.emit("muteState", { muted: true })
-  } else {
-    // Send current count to newly connected page-load sockets (no userId = counter-only)
+  const cookies = parseCookies(socket.request.headers.cookie || "")
+  const sess = verifySession(cookies[SESSION_COOKIE])
+
+  if (!sess) {
     socket.emit("connectedCount", connectedUsers.size)
+    return
   }
 
+  const uid = String(sess.uid)
+  const jobKey = getRecentJobForUser(uid)
+  socket.data.uid = uid
+  socket.data.jobKey = jobKey
+
+  if (!userSockets.has(uid)) userSockets.set(uid, new Set())
+  userSockets.get(uid).add(socket)
+  connectedUsers.add(uid)
+  broadcastConnectedCount()
+
+  socket.join(`user:${uid}`)
+  if (jobKey) socket.join(`job:${jobKey}`)
+
+  // Avoid audio leak before the first Roblox state sync is received
+  socket.emit("muteState", { muted: true })
+
   socket.on("speaking", ({ speaking }) => {
-    if (userId) {
-      speakingStates[userId] = speaking
-    }
+    speakingByUser.set(uid, { speaking: !!speaking, ts: nowMs() })
   })
 
   socket.on("disconnect", () => {
-    if (userId) {
-      connectedUsers.delete(userId)
-      userSockets.delete(String(userId))
-      delete speakingStates[userId]
-      broadcastConnectedCount()
+    const set = userSockets.get(uid)
+    if (set) {
+      set.delete(socket)
+      if (set.size === 0) userSockets.delete(uid)
     }
+    if (!userSockets.has(uid)) connectedUsers.delete(uid)
+    speakingByUser.delete(uid)
+    broadcastConnectedCount()
   })
 })
 
-// 📊 Connected users count
 app.get("/connected", (req, res) => {
   res.json({ count: connectedUsers.size })
-})
-
-// 🔊 Speaking update via HTTP POST (fallback / direct push from browser on state change)
-app.post("/speaking", (req, res) => {
-  const { userId, speaking } = req.body
-  if (!userId) return res.status(400).json({ error: "userId is required" })
-  speakingStates[userId] = !!speaking
-  res.json({ success: true })
-})
-
-// 🔊 Get speaking state
-app.get("/speaking/:userId", (req, res) => {
-  res.json({
-    speaking: speakingStates[req.params.userId] || false
-  })
-})
-
-// 📦 State-all endpoint — positions, modes, and speaking states for all players.
-// Volume attenuation is handled entirely by the browser's spatial audio engine.
-app.get("/state-all", (req, res) => {
-  const players = {}
-
-  const allUserIds = new Set([
-    ...Object.keys(positions),
-    ...Object.keys(speakingStates)
-  ])
-
-  for (let id of allUserIds) {
-    players[id] = {
-      speaking: speakingStates[id] || false,
-      position: positions[id] || null
-    }
-  }
-
-  res.json({ players })
 })
 
 const port = process.env.PORT || 3000
 httpServer.listen(port, () => {
   console.log(`Voice server running on port ${port}`)
 })
+
