@@ -280,6 +280,10 @@ app.post("/roblox/batch", (req, res) => {
   }
 
   const jobKey = `${placeId}:${jobId}`
+  const playerCount = Object.keys(players).length
+  if (process.env.VS_DEBUG) {
+    console.log(`[VoiceSystem] /roblox/batch job=${jobKey} players=${playerCount}`)
+  }
   let job = jobs.get(jobKey)
   if (!job) {
     job = {

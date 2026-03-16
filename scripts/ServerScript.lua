@@ -79,6 +79,14 @@ UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
 	setPlayerState(uid, x, y, z, lx, ly, lz, mode)
 end)
 
+-- Debug: show how player ids are resolved (useful in Studio Team Test)
+Players.PlayerAdded:Connect(function(player)
+	task.delay(1, function()
+		local uid = resolveStableUserId(player)
+		print("[VoiceSystem] PlayerAdded:", player.Name, "UserId:", player.UserId, "ResolvedId:", uid)
+	end)
+end)
+
 Players.PlayerRemoving:Connect(function(player)
 	local uid = resolvedIdByPlayer[player] or tostring(player.UserId)
 	playerStates[uid] = nil
@@ -113,7 +121,7 @@ task.spawn(function()
 		end)
 
 		if not ok or not res or not res.Success then
-			-- Avoid log spam
+			warn("[VoiceSystem] Batch HTTP failed:", ok, res and res.StatusCode, res and res.StatusMessage)
 			continue
 		end
 
