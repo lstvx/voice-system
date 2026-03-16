@@ -26,9 +26,14 @@ print("[VoiceSystem] ServerScript valide | SITE WEB :", RAILWAY)
 -- Receive position (with LookVector direction) from LocalScript and forward to backend
 UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
 	local ok, err = pcall(function()
-		HttpService:PostAsync(
-			RAILWAY .. "/position",
-			HttpService:JSONEncode({
+		HttpService:RequestAsync({
+			Url = RAILWAY .. "/position",
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["Authorization"] = "7f92a1d3_voice_secure_key"
+			},
+			Body = HttpService:JSONEncode({
 				userId = player.UserId,
 				x = x,
 				y = y,
@@ -37,10 +42,10 @@ UpdatePosition.OnServerEvent:Connect(function(player, x, y, z, lx, ly, lz, mode)
 				ly = ly,
 				lz = lz,
 				mode = mode
-			}),
-			Enum.HttpContentType.ApplicationJson
-		)
+			})
+		})
 	end)
+
 	if not ok then
 		warn("[VoiceSystem] ERROR sending position for", player.Name, ":", err)
 	end

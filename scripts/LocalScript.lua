@@ -13,7 +13,7 @@ local SpeakingUpdated   = VoiceSystemEvents:WaitForChild("SpeakingUpdated")
 -- UI REFERENCES
 --========================
 
-local gui = player.PlayerGui:WaitForChild("VoiceGui")
+local gui = player.PlayerGui:WaitForChild("Main"):WaitForChild("Hud"):WaitForChild("Voice")
 
 local btnWhisper = gui:WaitForChild("Chuchoter")
 local btnTalk    = gui:WaitForChild("Parler")
@@ -100,7 +100,7 @@ updateUI()
 -- V KEY (SHORT / LONG PRESS)
 --========================
 
-local HOLD_TIME = 1.5
+local HOLD_TIME = 0.5
 local holding = false
 local holdStart = 0
 
